@@ -14,7 +14,10 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/VariablesAndTheInspector.html
 
 ### 使用脚本实例化Prefab
 https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
+
+### 事件函数
+![输入图片说明](/imgs/2026-01-26/BDrP6Dixnx80haJj.png)![事件函数执行流程图](https://docs.unity.cn/cn/tuanjiemanual/uploads/Main/monobehaviour_flowchart.svg)
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjAxOTQxMDM2Myw3MzA2MTQyNiwtMTg0ND
-U5ODAxNywtNzc3MDQ0NjcwXX0=
+eyJoaXN0b3J5IjpbLTE5ODA1NTk3MDEsMjAxOTQxMDM2Myw3Mz
+A2MTQyNiwtMTg0NDU5ODAxNywtNzc3MDQ0NjcwXX0=
 -->
