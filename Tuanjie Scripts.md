@@ -9,8 +9,9 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/CreatingAndUsingScripts.html
 ### 编辑自定义变量
 https://docs.unity.cn/cn/tuanjiemanual/Manual/VariablesAndTheInspector.html
 1. Inspector面板展示的变量名称遵循特定的命名规则， 不一定和脚本中的变量名称完全一致
-2. 将变量定义为`public`或使用SerializedField
+2. 将变量定义为`public`或使用[SerializeField](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/SerializeField.html)在Inspector面板中查看并编辑变量
+3. 使用
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjQ5NzAzODQsLTE4NDQ1OTgwMTcsLTc3Nz
-A0NDY3MF19
+eyJoaXN0b3J5IjpbLTEyNTUwNzA5NTgsLTE4NDQ1OTgwMTcsLT
+c3NzA0NDY3MF19
 -->
