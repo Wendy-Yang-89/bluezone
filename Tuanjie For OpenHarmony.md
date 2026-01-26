@@ -1,7 +1,7 @@
 # 团结引擎适配OpenHarmony
 1. 安装[团结引擎](https://unity.cn/tuanjie/releases)
 2. 安装OpenHarmony Build Support
-![输入图片说明](/imgs/2026-01-26/ggi8ZVM8SLLKcSb9.png)
+![Tuanjie Hub ](/imgs/2026-01-26/ggi8ZVM8SLLKcSb9.png)
 
 
 
@@ -12,5 +12,5 @@
 3. https://developer.huawei.com/consumer/cn/doc/games-guides/games-adapt-unity-0000002298746825
 4. https://gitee.com/ohgameport/OHGamePort/tree/master/wiki/Unity(https://stackedit.io/).
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTQxMDM0MzAyMiwxNzQ0MDQ0MTc4XX0=
+eyJoaXN0b3J5IjpbOTE2OTc0ODY4LDE3NDQwNDQxNzhdfQ==
 -->
