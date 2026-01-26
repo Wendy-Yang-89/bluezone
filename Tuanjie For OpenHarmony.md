@@ -5,7 +5,7 @@
 ![Select  OpenHarmony Build Support](/imgs/2026-01-26/FuxLZN9vMODKE92i.png)
 3. 创建新工程，切换平台为OpenHarmony
 ![](https://docs.unity.cn/cn/tuanjiemanual/uploads/Main/openharmony-switch-platfrom.png)
-
+4. 导出工程，使用Deveco Studio编译成hap包并推送到设备上
 
 ## 参考
 1. https://docs.unity.cn/cn/tuanjiemanual/Manual/openharmony.html
@@ -13,5 +13,6 @@
 3. https://developer.huawei.com/consumer/cn/doc/games-guides/games-adapt-unity-0000002298746825
 4. https://gitee.com/ohgameport/OHGamePort/tree/master/wiki/Unity(https://stackedit.io/).
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTE3NTIyNDA0NywxNzQ0MDQ0MTc4XX0=
+eyJoaXN0b3J5IjpbLTg2NjIzOTc4OSwxMTc1MjI0MDQ3LDE3ND
+QwNDQxNzhdfQ==
 -->
