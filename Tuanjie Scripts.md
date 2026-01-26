@@ -11,8 +11,8 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/VariablesAndTheInspector.html
 1. Inspector面板展示的变量名称遵循特定的命名规则， 不一定和脚本中的变量名称完全一致
 2. 将变量定义为`public`或使用[SerializeField](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/SerializeField.html)在Inspector面板中查看并编辑变量
 3. 使用[HideInInspector](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/HideInInspector.html)在Inspector面板中隐藏变量
-4. 
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3Nz
-A0NDY3MF19
+eyJoaXN0b3J5IjpbNjEzOTc2MzE2LDczMDYxNDI2LC0xODQ0NT
+k4MDE3LC03NzcwNDQ2NzBdfQ==
 -->
