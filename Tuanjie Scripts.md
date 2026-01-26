@@ -8,6 +8,8 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/CreatingAndUsingScripts.html
 
 ### 编辑自定义变量
 https://docs.unity.cn/cn/tuanjiemanual/Manual/VariablesAndTheInspector.html
+1. Inspector面板展示的变量名称遵循特定的min
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE4NDQ1OTgwMTcsLTc3NzA0NDY3MF19
+eyJoaXN0b3J5IjpbMTg2MjA3ODM2MywtMTg0NDU5ODAxNywtNz
+c3MDQ0NjcwXX0=
 -->
