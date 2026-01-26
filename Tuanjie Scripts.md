@@ -17,10 +17,10 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 
 ### 事件函数
 ![输入图片说明](/imgs/2026-01-26/BDrP6Dixnx80haJj.png)![事件函数执行流程图](https://docs.unity.cn/cn/tuanjiemanual/uploads/Main/monobehaviour_flowchart.svg)
-- `Awake`
+- `Awake`:Ga
 - `OnEnable`
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTQ5MTM5MjA0OCwtMTk4MDU1OTcwMSwyMD
-E5NDEwMzYzLDczMDYxNDI2LC0xODQ0NTk4MDE3LC03NzcwNDQ2
-NzBdfQ==
+eyJoaXN0b3J5IjpbODcyOTkyNzQsMTQ5MTM5MjA0OCwtMTk4MD
+U1OTcwMSwyMDE5NDEwMzYzLDczMDYxNDI2LC0xODQ0NTk4MDE3
+LC03NzcwNDQ2NzBdfQ==
 -->
