@@ -4,7 +4,7 @@
 ### 创建脚本
 https://docs.unity.cn/cn/tuanjiemanual/Manual/CreatingAndUsingScripts.html
 1. 脚本名$==$类名时才可以将脚本附加到GameObject
-2. 
+2. 不要为脚本组件实现构造函数，
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyNTEwNDkzODQsLTc3NzA0NDY3MF19
+eyJoaXN0b3J5IjpbLTYxODcyOTY5LC03NzcwNDQ2NzBdfQ==
 -->
