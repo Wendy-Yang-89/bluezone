@@ -12,7 +12,9 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/VariablesAndTheInspector.html
 2. 将变量定义为`public`或使用[SerializeField](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/SerializeField.html)在Inspector面板中查看并编辑变量
 3. 使用[HideInInspector](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/HideInInspector.html)在Inspector面板中隐藏变量
 
+### 使用脚本实例化Prefab
+https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjEzOTc2MzE2LDczMDYxNDI2LC0xODQ0NT
-k4MDE3LC03NzcwNDQ2NzBdfQ==
+eyJoaXN0b3J5IjpbMjAxOTQxMDM2Myw3MzA2MTQyNiwtMTg0ND
+U5ODAxNywtNzc3MDQ0NjcwXX0=
 -->
