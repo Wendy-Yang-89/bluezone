@@ -20,11 +20,12 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `Awake`: GameObject被激活且预制件实例化之后执行，在脚本生命周期中仅调用一次
 - `OnEnable`: 启用对象之后/实例化`MonoBehaviour`之后立即调用
 - `Reset`: 脚本首次附加到GameObject或者在Inspector面板中执行`reset`操作时调用
-- `OnValidate`: 设置脚本自定义变量属性/
+- `OnValidate`: 设置脚本自定义变量属性/反序列化时调用
 - `Start`: 在第一次调用`Update`函数之前调用，在脚本生命周期中仅调用一次
 - `Update`: 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE1NzAwMTMxOTgsMTk2MTUwNDQ2OCwxND
-kxMzkyMDQ4LC0xOTgwNTU5NzAxLDIwMTk0MTAzNjMsNzMwNjE0
-MjYsLTE4NDQ1OTgwMTcsLTc3NzA0NDY3MF19
+eyJoaXN0b3J5IjpbLTEwODQ0NjE4NTQsLTE1NzAwMTMxOTgsMT
+k2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5NzAxLDIwMTk0
+MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3NzA0NDY3MF
+19
 -->
