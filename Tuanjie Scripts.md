@@ -19,10 +19,11 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 ![输入图片说明](/imgs/2026-01-26/BDrP6Dixnx80haJj.png)![事件函数执行流程图](https://docs.unity.cn/cn/tuanjiemanual/uploads/Main/monobehaviour_flowchart.svg)
 - `Awake`: GameObject被激活且预制件实例化之后执行
 - `OnEnable`: 启用对象之后/实例化`MonoBehaviour`之后立即调用
+- `Reset`: 
 - `Start`: 
 - `Update`:
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTk5NTI2OSwxOTYxNTA0NDY4LDE0OTEzOT
-IwNDgsLTE5ODA1NTk3MDEsMjAxOTQxMDM2Myw3MzA2MTQyNiwt
-MTg0NDU5ODAxNywtNzc3MDQ0NjcwXX0=
+eyJoaXN0b3J5IjpbLTkwODgyNDI1NywxOTYxNTA0NDY4LDE0OT
+EzOTIwNDgsLTE5ODA1NTk3MDEsMjAxOTQxMDM2Myw3MzA2MTQy
+NiwtMTg0NDU5ODAxNywtNzc3MDQ0NjcwXX0=
 -->
