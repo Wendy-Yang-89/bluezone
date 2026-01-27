@@ -27,10 +27,11 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `LateUpdate`: 在`Update`完成之后开始执行，用于跟随第三人称摄像机的更新
 
 1. 同一`MonoBehaviour`子类不同实例之间调用事件函数的顺序不能指定
-2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`zhi
+2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNDAyMDAyMjIwLDg5NzYxOTM2MCwxNjE2OD
-AxMTYsLTE1NzAwMTMxOTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4
-LC0xOTgwNTU5NzAxLDIwMTk0MTAzNjMsNzMwNjE0MjYsLTE4ND
-Q1OTgwMTcsLTc3NzA0NDY3MF19
+eyJoaXN0b3J5IjpbLTEwNDA2NTU2NzIsODk3NjE5MzYwLDE2MT
+Y4MDExNiwtMTU3MDAxMzE5OCwxOTYxNTA0NDY4LDE0OTEzOTIw
+NDgsLTE5ODA1NTk3MDEsMjAxOTQxMDM2Myw3MzA2MTQyNiwtMT
+g0NDU5ODAxNywtNzc3MDQ0NjcwXX0=
 -->
