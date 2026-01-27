@@ -22,11 +22,11 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `Reset`: 脚本首次附加到GameObject或者在Inspector面板中执行`reset`操作时调用
 - `OnValidate`: 设置脚本自定义变量属性/反序列化时调用
 - `Start`: 启用脚本实例时，在第一次调用`Update`函数之前调用，在脚本生命周期中仅调用一次
-- `FixedUpdate`: 以独立于帧率的频率进行更新，用于物理系统的计算，更新间隔为`[Time.fixedDeltaTime`(https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Time-fixedDeltaTime.html)
+- `FixedUpdate`: 以独立于帧率的频率进行更新，用于物理系统的计算，更新间隔为[`Time.fixedDeltaTime`](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Time-fixedDeltaTime.html)
 - `Update`: 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyMjQxNDE5NzMsMTYxNjgwMTE2LC0xNT
-cwMDEzMTk4LDE5NjE1MDQ0NjgsMTQ5MTM5MjA0OCwtMTk4MDU1
-OTcwMSwyMDE5NDEwMzYzLDczMDYxNDI2LC0xODQ0NTk4MDE3LC
-03NzcwNDQ2NzBdfQ==
+eyJoaXN0b3J5IjpbODk3NjE5MzYwLDE2MTY4MDExNiwtMTU3MD
+AxMzE5OCwxOTYxNTA0NDY4LDE0OTEzOTIwNDgsLTE5ODA1NTk3
+MDEsMjAxOTQxMDM2Myw3MzA2MTQyNiwtMTg0NDU5ODAxNywtNz
+c3MDQ0NjcwXX0=
 -->
