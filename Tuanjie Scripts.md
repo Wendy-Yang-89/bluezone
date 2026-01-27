@@ -23,10 +23,10 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 	- `Reset`: 脚本首次附加到GameObject或者在Inspector面板中执行`reset`操作时调用
 	- `OnValidate`: 设置脚本自定义变量属性/反序列化时调用
 	- `Start`: 启用脚本实例时，在第一次调用`Update`函数之前调用，在脚本生命周期中仅调用一次
-- 
-- `FixedUpdate`: 以独立于帧率的频率进行更新，用于物理系统的计算，更新间隔为[`Time.fixedDeltaTime`](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Time-fixedDeltaTime.html)
-- `Update`: 帧回调函数，用于每帧更新
-- `LateUpdate`: 在`Update`完成之后开始执行，用于跟随第三人称摄像机的更新
+- Per-Frame Update
+	- `FixedUpdate`: 以独立于帧率的频率进行更新，用于物理系统的计算，更新间隔为[`Time.fixedDeltaTime`](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Time-fixedDeltaTime.html)
+	- `Update`: 帧回调函数，用于每帧更新
+	- `LateUpdate`: 在`Update`完成之后开始执行，用于跟随第三人称摄像机的更新
 - Built-In Rendering Pipeline
 	- `OnPreCull`：在摄像机剔除场景之前调用。剔除操作将确定摄像机可以看到哪些对象。正好在进行剔除之前调用 OnPreCull。
 	-  `OnBecameVisible`/`OnBecameInvisible`：对象变为对任何摄像机可见/不可见时调用。
@@ -42,9 +42,9 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbOTg0MDgyNjE2LC0zMjIyNjYyNDIsLTEwND
-A2NTU2NzIsODk3NjE5MzYwLDE2MTY4MDExNiwtMTU3MDAxMzE5
-OCwxOTYxNTA0NDY4LDE0OTEzOTIwNDgsLTE5ODA1NTk3MDEsMj
-AxOTQxMDM2Myw3MzA2MTQyNiwtMTg0NDU5ODAxNywtNzc3MDQ0
-NjcwXX0=
+eyJoaXN0b3J5IjpbLTg3MjU0ODYwNCwtMzIyMjY2MjQyLC0xMD
+QwNjU1NjcyLDg5NzYxOTM2MCwxNjE2ODAxMTYsLTE1NzAwMTMx
+OTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5NzAxLD
+IwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3NzA0
+NDY3MF19
 -->
