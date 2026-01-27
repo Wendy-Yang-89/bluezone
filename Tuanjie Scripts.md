@@ -25,8 +25,10 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `FixedUpdate`: 以独立于帧率的频率进行更新，用于物理系统的计算，更新间隔为[`Time.fixedDeltaTime`](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Time-fixedDeltaTime.html)
 - `Update`: 帧回调函数，用于每帧更新
 - `LateUpdate`: 在`Update`完成之后开始执行，用于跟随第三人称摄像机的更新
+
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTY4MTY5ODU0Nyw4OTc2MTkzNjAsMTYxNj
+eyJoaXN0b3J5IjpbLTIyMzI3NTY3MSw4OTc2MTkzNjAsMTYxNj
 gwMTE2LC0xNTcwMDEzMTk4LDE5NjE1MDQ0NjgsMTQ5MTM5MjA0
 OCwtMTk4MDU1OTcwMSwyMDE5NDEwMzYzLDczMDYxNDI2LC0xOD
 Q0NTk4MDE3LC03NzcwNDQ2NzBdfQ==
