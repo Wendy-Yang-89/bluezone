@@ -42,20 +42,21 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 	-  `yield`: 在下一帧上调用所有`Update`函数后，协程将继续。
 	-  `yield WaitForSeconds`在为帧调用所有`Update`函数后，在指定的时间延迟后继续。
 	-  `yield WaitForFixedUpdate`在所有脚本上调用所有`FixedUpdate`后继续。如果协同程序在`FixedUpdate`之前生成，那么它会在当前帧的`FixedUpdate`之后继续运行。
-	-   yield WWW 在 WWW 下载完成后继续。
-	-   yield StartCoroutine 将协程链接起来，并会等待 MyFunc 协程先完成。
+	-  `yield WWW`在`WWW`下载完成后继续。
+	- `yield StartCoroutine`将协程链接起来，并会等待`MyFunc`协程先完成。
 - Destroy
-	- `OnDestroy`: 在对象最后一帧
+	- `OnDestroy`: 在对象存在的最后一帧完成所有帧更新之后，调用此函数
 - Exit
-	- 
+	- OnApplicationQuit：**在退出应用程序之前在所有游戏对象上调用此函数。在编辑器中，用户停止播放模式时，调用函数。
+-   **OnDisable：**行为被禁用或处于非活动状态时，调用此函数。
 
 1. 同一`MonoBehaviour`子类不同实例之间调用事件函数的顺序不能指定
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTUxNzM4MzE2MiwtMzIyMjY2MjQyLC0xMD
-QwNjU1NjcyLDg5NzYxOTM2MCwxNjE2ODAxMTYsLTE1NzAwMTMx
-OTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5NzAxLD
-IwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3NzA0
-NDY3MF19
+eyJoaXN0b3J5IjpbMTEwMDkzNzYwMywtNTE3MzgzMTYyLC0zMj
+IyNjYyNDIsLTEwNDA2NTU2NzIsODk3NjE5MzYwLDE2MTY4MDEx
+NiwtMTU3MDAxMzE5OCwxOTYxNTA0NDY4LDE0OTEzOTIwNDgsLT
+E5ODA1NTk3MDEsMjAxOTQxMDM2Myw3MzA2MTQyNiwtMTg0NDU5
+ODAxNywtNzc3MDQ0NjcwXX0=
 -->
