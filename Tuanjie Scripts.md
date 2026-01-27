@@ -37,12 +37,14 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 	-   `OnRenderImage`：在场景渲染完成后调用以允许对图像进行后处理，请参阅[后期处理效果](https://docs.unity.cn/cn/tuanjiemanual/Manual/PostProcessingOverview.html)。
 	-   `OnGUI`：每帧调用多次以响应 GUI 事件。首先处理布局和重新绘制事件，然后为每个输入事件处理布局和键盘/鼠标事件。
 	-   `OnDrawGizmos` : 用于在场景视图中绘制辅助图标以实现可视化。
+- Co-Routine
+	-	
 
 1. 同一`MonoBehaviour`子类不同实例之间调用事件函数的顺序不能指定
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTg3MjU0ODYwNCwtMzIyMjY2MjQyLC0xMD
+eyJoaXN0b3J5IjpbLTkwMjg0NDY2NywtMzIyMjY2MjQyLC0xMD
 QwNjU1NjcyLDg5NzYxOTM2MCwxNjE2ODAxMTYsLTE1NzAwMTMx
 OTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5NzAxLD
 IwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3NzA0
