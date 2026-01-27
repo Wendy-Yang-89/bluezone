@@ -38,13 +38,19 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 	-   `OnGUI`：每帧调用多次以响应 GUI 事件。首先处理布局和重新绘制事件，然后为每个输入事件处理布局和键盘/鼠标事件。
 	-   `OnDrawGizmos` : 用于在场景视图中绘制辅助图标以实现可视化。
 - Co-Routine
-	-	
+	-	Update 函数返回后将运行正常协程更新。协程是一个可暂停执行 (yield) 直到给定的 YieldInstruction 达到完成状态的函数。 协程的不同用法：
+
+-   *yield** 在下一帧上调用所有 Update 函数后，协程将继续。
+-   **yield WaitForSeconds** 在为帧调用所有 Update 函数后，在指定的时间延迟后继续。
+-   **yield WaitForFixedUpdate** 在所有脚本上调用所有 FixedUpdate 后继续。如果协同程序在 FixedUpdate 之前生成，那么它会在当前帧的 FixedUpdate 之后继续运行。
+-   **yield WWW** 在 WWW 下载完成后继续。
+-   **yield StartCoroutine** 将协程链接起来，并会等待 MyFunc 协程先完成。
 
 1. 同一`MonoBehaviour`子类不同实例之间调用事件函数的顺序不能指定
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTkwMjg0NDY2NywtMzIyMjY2MjQyLC0xMD
+eyJoaXN0b3J5IjpbMTA2OTM3NTY2NSwtMzIyMjY2MjQyLC0xMD
 QwNjU1NjcyLDg5NzYxOTM2MCwxNjE2ODAxMTYsLTE1NzAwMTMx
 OTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5NzAxLD
 IwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3NzA0
