@@ -22,10 +22,11 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `Reset`: 脚本首次附加到GameObject或者在Inspector面板中执行`reset`操作时调用
 - `OnValidate`: 设置脚本自定义变量属性/反序列化时调用
 - `Start`: 启用脚本实例时，在第一次调用`Update`函数之前调用，在脚本生命周期中仅调用一次
+- `FixedUpdate`: 
 - `Update`: 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTYxNjgwMTE2LC0xNTcwMDEzMTk4LDE5Nj
-E1MDQ0NjgsMTQ5MTM5MjA0OCwtMTk4MDU1OTcwMSwyMDE5NDEw
-MzYzLDczMDYxNDI2LC0xODQ0NTk4MDE3LC03NzcwNDQ2NzBdfQ
-==
+eyJoaXN0b3J5IjpbMTE3ODE4OTUyOCwxNjE2ODAxMTYsLTE1Nz
+AwMTMxOTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5
+NzAxLDIwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLT
+c3NzA0NDY3MF19
 -->
