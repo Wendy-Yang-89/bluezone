@@ -26,20 +26,20 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `Update`: 帧回调函数，用于每帧更新
 - `LateUpdate`: 在`Update`完成之后开始执行，用于跟随第三人称摄像机的更新
 - `OnPreCull`：在摄像机剔除场景之前调用。剔除操作将确定摄像机可以看到哪些对象。正好在进行剔除之前调用 OnPreCull。
--  `OnBecameVisible`/`OnBecameInvisible`：**对象变为对任何摄像机可见/不可见时调用。
--  `OnWillRenderObject`：**如果对象可见，则为每个摄像机调用**一次**。
--   `OnPreRender`：**在摄像机开始渲染场景之前调用。
--  `OnRenderObject`：**所有常规场景渲染完成之后调用。此时，可以使用 [GL](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/GL.html) 类或 [Graphics.DrawMeshNow](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Graphics.DrawMeshNow.html) 来绘制自定义几何形状。
--  `OnPostRender`：**在摄像机完成场景渲染后调用。
--   `OnRenderImage`：**在场景渲染完成后调用以允许对图像进行后处理，请参阅[后期处理效果](https://docs.unity.cn/cn/tuanjiemanual/Manual/PostProcessingOverview.html)。
--   `OnGUI`：**每帧调用多次以响应 GUI 事件。首先处理布局和重新绘制事件，然后为每个输入事件处理布局和键盘/鼠标事件。
--   `OnDrawGizmos` 用于在场景视图中绘制辅助图标以实现可视化。
+-  `OnBecameVisible`/`OnBecameInvisible`：对象变为对任何摄像机可见/不可见时调用。
+-  `OnWillRenderObject`：如果对象可见，则为每个摄像机调用**一次**。
+-   `OnPreRender`：在摄像机开始渲染场景之前调用。
+-  `OnRenderObject`：所有常规场景渲染完成之后调用。此时，可以使用 [GL](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/GL.html) 类或 [Graphics.DrawMeshNow](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Graphics.DrawMeshNow.html) 来绘制自定义几何形状。
+-  `OnPostRender`：在摄像机完成场景渲染后调用。
+-   `OnRenderImage`：在场景渲染完成后调用以允许对图像进行后处理，请参阅[后期处理效果](https://docs.unity.cn/cn/tuanjiemanual/Manual/PostProcessingOverview.html)。
+-   `OnGUI`：每帧调用多次以响应 GUI 事件。首先处理布局和重新绘制事件，然后为每个输入事件处理布局和键盘/鼠标事件。
+-   `OnDrawGizmos` : 用于在场景视图中绘制辅助图标以实现可视化。
 
 1. 同一`MonoBehaviour`子类不同实例之间调用事件函数的顺序不能指定
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTI5NzU5ODQzNiwtMTA0MDY1NTY3Miw4OT
+eyJoaXN0b3J5IjpbLTMyMjI2NjI0MiwtMTA0MDY1NTY3Miw4OT
 c2MTkzNjAsMTYxNjgwMTE2LC0xNTcwMDEzMTk4LDE5NjE1MDQ0
 NjgsMTQ5MTM5MjA0OCwtMTk4MDU1OTcwMSwyMDE5NDEwMzYzLD
 czMDYxNDI2LC0xODQ0NTk4MDE3LC03NzcwNDQ2NzBdfQ==
