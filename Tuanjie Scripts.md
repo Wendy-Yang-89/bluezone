@@ -47,16 +47,16 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - Destroy
 	- `OnDestroy`: 在对象存在的最后一帧完成所有帧更新之后，调用此函数
 - Exit
-	- OnApplicationQuit: 在退出应用程序之前在所有游戏对象上调用此函数。在编辑器中，用户停止播放模式时，调用函数。
--   **OnDisable：**行为被禁用或处于非活动状态时，调用此函数。
+	- `OnApplicationQuit: 在退出应用程序之前在所有游戏对象上调用此函数。在编辑器中，用户停止播放模式时，调用函数。
+-   `OnDisable: 行为被禁用或处于非活动状态时，调用此函数。
 
 1. 同一`MonoBehaviour`子类不同实例之间调用事件函数的顺序不能指定
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExODc2ODc2ODUsLTUxNzM4MzE2MiwtMz
-IyMjY2MjQyLC0xMDQwNjU1NjcyLDg5NzYxOTM2MCwxNjE2ODAx
-MTYsLTE1NzAwMTMxOTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC
-0xOTgwNTU5NzAxLDIwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1
-OTgwMTcsLTc3NzA0NDY3MF19
+eyJoaXN0b3J5IjpbLTI5MzczOTIwNywtNTE3MzgzMTYyLC0zMj
+IyNjYyNDIsLTEwNDA2NTU2NzIsODk3NjE5MzYwLDE2MTY4MDEx
+NiwtMTU3MDAxMzE5OCwxOTYxNTA0NDY4LDE0OTEzOTIwNDgsLT
+E5ODA1NTk3MDEsMjAxOTQxMDM2Myw3MzA2MTQyNiwtMTg0NDU5
+ODAxNywtNzc3MDQ0NjcwXX0=
 -->
