@@ -39,7 +39,7 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 	-   `OnDrawGizmos` : 用于在场景视图中绘制辅助图标以实现可视化。
 - Co-Routine
 	`Update`函数返回后将运行正常协程更新。协程是一个可暂停执行 (`yield`) 直到给定的`YieldInstruction`达到完成状态的函数。 协程的不同用法：
-	-   yield 在下一帧上调用所有 Update 函数后，协程将继续。
+	-   `yield`: 在下一帧上调用所有 Update 函数后，协程将继续。
 	-  yield WaitForSeconds 在为帧调用所有 Update 函数后，在指定的时间延迟后继续。
 	-   yield WaitForFixedUpdate 在所有脚本上调用所有 FixedUpdate 后继续。如果协同程序在 FixedUpdate 之前生成，那么它会在当前帧的 FixedUpdate 之后继续运行。
 	-   yield WWW 在 WWW 下载完成后继续。
@@ -49,9 +49,9 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMzM0NjMzOTc4LC0zMjIyNjYyNDIsLTEwND
-A2NTU2NzIsODk3NjE5MzYwLDE2MTY4MDExNiwtMTU3MDAxMzE5
-OCwxOTYxNTA0NDY4LDE0OTEzOTIwNDgsLTE5ODA1NTk3MDEsMj
-AxOTQxMDM2Myw3MzA2MTQyNiwtMTg0NDU5ODAxNywtNzc3MDQ0
-NjcwXX0=
+eyJoaXN0b3J5IjpbNjIxNzU2MDQsLTMyMjI2NjI0MiwtMTA0MD
+Y1NTY3Miw4OTc2MTkzNjAsMTYxNjgwMTE2LC0xNTcwMDEzMTk4
+LDE5NjE1MDQ0NjgsMTQ5MTM5MjA0OCwtMTk4MDU1OTcwMSwyMD
+E5NDEwMzYzLDczMDYxNDI2LC0xODQ0NTk4MDE3LC03NzcwNDQ2
+NzBdfQ==
 -->
