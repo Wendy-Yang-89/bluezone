@@ -26,10 +26,10 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `Update`: 帧回调函数，用于每帧更新
 - `LateUpdate`: 在`Update`完成之后开始执行，用于跟随第三人称摄像机的更新
 
-
+1. 同
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIyMzI3NTY3MSw4OTc2MTkzNjAsMTYxNj
-gwMTE2LC0xNTcwMDEzMTk4LDE5NjE1MDQ0NjgsMTQ5MTM5MjA0
-OCwtMTk4MDU1OTcwMSwyMDE5NDEwMzYzLDczMDYxNDI2LC0xOD
-Q0NTk4MDE3LC03NzcwNDQ2NzBdfQ==
+eyJoaXN0b3J5IjpbLTE0OTQxMTE1NTIsODk3NjE5MzYwLDE2MT
+Y4MDExNiwtMTU3MDAxMzE5OCwxOTYxNTA0NDY4LDE0OTEzOTIw
+NDgsLTE5ODA1NTk3MDEsMjAxOTQxMDM2Myw3MzA2MTQyNiwtMT
+g0NDU5ODAxNywtNzc3MDQ0NjcwXX0=
 -->
