@@ -45,7 +45,7 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 	-   yield WWW 在 WWW 下载完成后继续。
 	-   yield StartCoroutine 将协程链接起来，并会等待 MyFunc 协程先完成。
 - Destroy
-	- `OnDestroy`: zaui
+	- `OnDestroy`: 在对象最后一帧
 - Exit
 	- 
 
@@ -53,7 +53,7 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 2. 不同`MonoBehaviour`子类实例之间调用事件函数的顺序可以通过`Project Settings > Script Execution Order`指定
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTYzMzU1NjUyOCwtMzIyMjY2MjQyLC0xMD
+eyJoaXN0b3J5IjpbLTUxNzM4MzE2MiwtMzIyMjY2MjQyLC0xMD
 QwNjU1NjcyLDg5NzYxOTM2MCwxNjE2ODAxMTYsLTE1NzAwMTMx
 OTgsMTk2MTUwNDQ2OCwxNDkxMzkyMDQ4LC0xOTgwNTU5NzAxLD
 IwMTk0MTAzNjMsNzMwNjE0MjYsLTE4NDQ1OTgwMTcsLTc3NzA0
