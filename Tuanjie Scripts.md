@@ -24,9 +24,9 @@ https://docs.unity.cn/cn/tuanjiemanual/Manual/InstantiatingPrefabs.html
 - `Start`: 启用脚本实例时，在第一次调用`Update`函数之前调用，在脚本生命周期中仅调用一次
 - `FixedUpdate`: 以独立于帧率的频率进行更新，用于物理系统的计算，更新间隔为[`Time.fixedDeltaTime`](https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Time-fixedDeltaTime.html)
 - `Update`: 帧回调函数，用于每帧更新
-- 
+- `LateUpdate`: 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTMxODY5MjE4MCw4OTc2MTkzNjAsMTYxNj
+eyJoaXN0b3J5IjpbMTYwOTY1MTg2OSw4OTc2MTkzNjAsMTYxNj
 gwMTE2LC0xNTcwMDEzMTk4LDE5NjE1MDQ0NjgsMTQ5MTM5MjA0
 OCwtMTk4MDU1OTcwMSwyMDE5NDEwMzYzLDczMDYxNDI2LC0xOD
 Q0NTk4MDE3LC03NzcwNDQ2NzBdfQ==
