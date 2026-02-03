@@ -19,8 +19,8 @@
 
 
 ##### AGP
-- AGP only support *.kxt* when us
+- AGP only support *.kxt* format input when using **Cubemap** type environment
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTMyNjYxMzk4N119
+eyJoaXN0b3J5IjpbLTEzMDkxMTM5NzhdfQ==
 -->
