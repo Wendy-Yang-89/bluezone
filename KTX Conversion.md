@@ -41,10 +41,12 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 ###### 6-Sided Cubemap Generation
 
 ### Tool: cmftStudio
+https://github.com/dariomanesku/cmftStudio/releases
 
+####
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU3OTcyNjUxMywxOTUwNDQxMTYwLDExOD
-U0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ==
+eyJoaXN0b3J5IjpbLTE1NTk4NTcwNjQsMTk1MDQ0MTE2MCwxMT
+g1NDMxNDUwLC0xODcwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
 -->
