@@ -10,7 +10,7 @@
 	```
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/ktx2ktx2.html
 
-#### Pratice: Generate environment map for AGPa
+#### Pratice: Generate environment map for AGP and Unity
 
 ##### AGP
 - AGP only support *.kxt* format input when using **Cubemap** type environment
@@ -38,6 +38,6 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNTM0NDc2NjMzLC0xODcwMzE1Nzc0LC0xOT
-U4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbMTkwMTY3NzEyOCwtMTg3MDMxNTc3NCwtMT
+k1ODAwOTQ5OF19
 -->
