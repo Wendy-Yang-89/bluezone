@@ -28,7 +28,11 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 - AGP only support *.kxt* format input when using **Cubemap** type environment
 
 ###### *.ktx* Generation
-
+```sh
+# 完整命令：生成 mipmap + BC6H HDR 压缩 + 输出 KTX1 
+toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
+```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbOTQwOTEzMzI0LC0xOTU4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ
+==
 -->
