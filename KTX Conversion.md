@@ -11,7 +11,8 @@
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/ktx2ktx2.html
 
 #### Pratice: Generate environment map for unity and AGP
-##### 
+##### Unity
+Unity doest not
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTkzMzg2OTQyOF19
+eyJoaXN0b3J5IjpbNDYwODUxNjY0XX0=
 -->
