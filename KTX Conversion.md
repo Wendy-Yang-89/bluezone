@@ -57,10 +57,10 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 
 # Q&A
 1. **Q**: toktx cannot recognize *.ppm* format input 
-	   
+	   ```
 	   toktx: failed to create image from belfast_sunset_puresky_4k.ppm(0,0). No image plugin recognized the format of "belfast_sunset_puresky_4k.ppm". 
 		Is it a file format that we don't know about?
-	
+		```
 	**A**: Netpbm 格式（包含 PPM）有两种变体：
 	- **P6 格式（二进制）**：`toktx` 唯一支持的 PPM 格式，文件体积小，数据以二进制存储，无冗余注释。
 	- **P3 格式（ASCII）**：人类可读的文本格式，`toktx` 不支持，会直接报「无法识别格式」错误。
@@ -71,7 +71,7 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 	magick input.hdr -gamma 1.0 -depth 16 -alpha off -strip -format ppm -define ppm:format=png output.ppm
 	```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTMyNTEwODU5LDQ1NDA1OTUyNCwxNzI5Mz
-YyMjc0LDE5NTA0NDExNjAsMTE4NTQzMTQ1MCwtMTg3MDMxNTc3
-NCwtMTk1ODAwOTQ5OF19
+eyJoaXN0b3J5IjpbMTk5NjY0MDI1NSw0NTQwNTk1MjQsMTcyOT
+M2MjI3NCwxOTUwNDQxMTYwLDExODU0MzE0NTAsLTE4NzAzMTU3
+NzQsLTE5NTgwMDk0OThdfQ==
 -->
