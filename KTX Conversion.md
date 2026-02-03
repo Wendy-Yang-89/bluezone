@@ -3,11 +3,14 @@
 	```sh
 	toktx [options] <outfile> [<infile>.{jpg,png,pam,pgm,ppm} ...]
 	```
+	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/toktx.html
 3. .kxt -> .kxt2
 	```sh
 	ktx2ktx2 [options] [<infile> ...]
 	```
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/ktx2ktx2.html
+
+####
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjI5ODUzNjE3XX0=
+eyJoaXN0b3J5IjpbLTEyMjM5MDQ4NzBdfQ==
 -->
