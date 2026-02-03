@@ -15,7 +15,8 @@
 - Unity doest not support .ktx format
 - Install **KTX for Unity** in **Package Manager** will support .ktx2 format and .basis format
 
+###### 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTI5MDkzODA3OF19
+eyJoaXN0b3J5IjpbLTk3MzQ3MDY4OF19
 -->
