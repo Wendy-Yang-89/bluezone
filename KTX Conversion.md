@@ -59,8 +59,10 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 1. **Q**: toktx cannot recognize *.ppm* format input 
 	> toktx: failed to create image from belfast_sunset_puresky_4k.ppm(0,0). No image plugin recognized the format of "belfast_sunset_puresky_4k.ppm". 
 	Is it a file format that we don't know about?
+	
+	**A**: 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyMTAzNTMyOTUsMTcyOTM2MjI3NCwxOT
-UwNDQxMTYwLDExODU0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgw
-MDk0OThdfQ==
+eyJoaXN0b3J5IjpbNDI2OTgyNjcyLDE3MjkzNjIyNzQsMTk1MD
+Q0MTE2MCwxMTg1NDMxNDUwLC0xODcwMzE1Nzc0LC0xOTU4MDA5
+NDk4XX0=
 -->
