@@ -14,9 +14,12 @@
 ##### Unity
 - Unity doest not support *.ktx* format
 - Install **KTX for Unity** in **Package Manager** will support *.ktx2* format and .basis format
-- 
+- Unity also supports 6-Sided Cubemap input for skybox material
 
 ###### *.ktx2* Generation
+
+
+###### 6-Sided Cubemap Generation
 
 
 ##### AGP
@@ -25,5 +28,5 @@
 ###### *.ktx* Generation
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTE1NzQ2OTIyMF19
+eyJoaXN0b3J5IjpbLTE5NTgwMDk0OThdfQ==
 -->
