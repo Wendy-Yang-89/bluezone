@@ -14,6 +14,7 @@
 ##### Unity
 - Unity doest not support *.ktx* format
 - Install **KTX for Unity** in **Package Manager** will support *.ktx2* format and .basis format
+- 
 
 ###### *.ktx2* Generation
 
@@ -21,8 +22,8 @@
 ##### AGP
 - AGP only support *.kxt* format input when using **Cubemap** type environment
 
-###### *.ktx2* Generation
+###### *.ktx* Generation
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU0MDQyNzQxN119
+eyJoaXN0b3J5IjpbMTE1NzQ2OTIyMF19
 -->
