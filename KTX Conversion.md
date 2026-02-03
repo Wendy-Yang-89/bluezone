@@ -55,8 +55,12 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
     -   配置压缩格式（BC6H 用于 HDR）→ 导出 KTX 文件。
     -   优势：支持可视化编辑（如亮度调整、模糊），适合处理后再导出。
 
-
+# Q&A
+1. 
+	> toktx: failed to create image from belfast_sunset_puresky_4k.ppm(0,0). No image plugin recognized the format of "belfast_sunset_puresky_4k.ppm". 
+	Is it a file format that we don't know about?
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTcyOTM2MjI3NCwxOTUwNDQxMTYwLDExOD
-U0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ==
+eyJoaXN0b3J5IjpbLTk5NTg4NzIzNSwxNzI5MzYyMjc0LDE5NT
+A0NDExNjAsMTE4NTQzMTQ1MCwtMTg3MDMxNTc3NCwtMTk1ODAw
+OTQ5OF19
 -->
