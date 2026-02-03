@@ -41,7 +41,11 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 ###### 6-Sided Cubemap Generation
 
 ### Tool: cmftStudio
-https://github.com/dariomanesku/cmftStudio/releases
+-   下载地址：[https://github.com/dariomanesku/cmftStudio/releases](https://github.com/dariomanesku/cmftStudio/releases)
+-   操作步骤：
+    -   导入 HDR 全景图 → 选择输出类型为 `KTX`/`KTX2`。
+    -   配置参数（分辨率、mipmap、压缩格式 BC6H）→ 点击 `Run` 导出。
+    -   优势：自动处理坐标转换，无需担心天空盒颠倒问题。
 
 ### TextureLab
 
@@ -53,6 +57,6 @@ https://github.com/dariomanesku/cmftStudio/releases
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjc4MDUwMDc0LDE5NTA0NDExNjAsMTE4NT
-QzMTQ1MCwtMTg3MDMxNTc3NCwtMTk1ODAwOTQ5OF19
+eyJoaXN0b3J5IjpbMTcyOTM2MjI3NCwxOTUwNDQxMTYwLDExOD
+U0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ==
 -->
