@@ -5,6 +5,7 @@
 	```
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/toktx.html
 	> **Note**: toktx 不支持.hdr/.exr格式的输入，需要预先转换成其支持的格式
+	> - ImageMagick: https://imagemagick.org/script/download.php
 	> - 
 	
 3. .kxt -> .kxt2
@@ -41,6 +42,6 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2Mjg5MzIzMywxMTg1NDMxNDUwLC0xOD
+eyJoaXN0b3J5IjpbMTk1MDQ0MTE2MCwxMTg1NDMxNDUwLC0xOD
 cwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
 -->
