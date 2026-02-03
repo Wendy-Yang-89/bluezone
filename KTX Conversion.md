@@ -12,7 +12,8 @@
 
 #### Pratice: Generate environment map for unity and AGP
 ##### Unity
-Unity doest not
+- Unity doest not support .ktx format
+- Install **KTX for Unity** in 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNDYwODUxNjY0XX0=
+eyJoaXN0b3J5IjpbLTE0MzU5MTk3MjBdfQ==
 -->
