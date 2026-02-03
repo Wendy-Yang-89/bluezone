@@ -19,8 +19,8 @@
 
 
 ##### AGP
-- AGP only support *.kxt* 
+- AGP only support *.kxt* when us
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTM3Nzk5NzEwM119
+eyJoaXN0b3J5IjpbLTMyNjYxMzk4N119
 -->
