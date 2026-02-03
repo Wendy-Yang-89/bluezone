@@ -18,7 +18,8 @@
 
 ###### *.ktx2* Generation
 ```sh
-# 完整命令：生成 mipmap + BC6H HDR 压缩 + 输出 KTX1 toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
+# 完整命令：生成 mipmap + BC6H HDR 压缩 + 输出 KTX1 
+toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 ```
 ###### 6-Sided Cubemap Generation
 
@@ -29,6 +30,5 @@
 ###### *.ktx* Generation
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEzMDQyMDczOTgsLTE5NTgwMDk0OThdfQ
-==
+eyJoaXN0b3J5IjpbOTQwOTEzMzI0LC0xOTU4MDA5NDk4XX0=
 -->
