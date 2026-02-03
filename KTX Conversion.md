@@ -4,7 +4,7 @@
 	toktx [options] <outfile> [<infile>.{jpg,png,pam,pgm,ppm} ...]
 	```
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/toktx.html
-	>>> **Note**: toktx 不支持.hdr/.exr格式的输入，需要预先转换成其支持的格式
+	> **Note**: toktx 不支持.hdr/.exr格式的输入，需要预先转换成其支持的格式
 	
 3. .kxt -> .kxt2
 	```sh
@@ -40,6 +40,6 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTkzODQxNzkzNCwxMTg1NDMxNDUwLC0xOD
-cwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbLTEwNTE5Mzg4MDIsMTE4NTQzMTQ1MCwtMT
+g3MDMxNTc3NCwtMTk1ODAwOTQ5OF19
 -->
