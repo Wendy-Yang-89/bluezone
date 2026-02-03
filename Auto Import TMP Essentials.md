@@ -14,7 +14,7 @@ public class AutoImportTMPEssentials : Editor
     }
 }
 ```
-2. 将jiao'b
+2. 将脚本放置在`Editor`路径下，否则不会被
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE3MDQzNDc5OTldfQ==
+eyJoaXN0b3J5IjpbLTM2ODQ4Njg5OV19
 -->
