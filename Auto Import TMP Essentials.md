@@ -14,7 +14,10 @@ public class AutoImportTMPEssentials : Editor
     }
 }
 ```
-2. 将脚本放置在`Editor`路径下，否则不会被
+2. 将脚本放置在`Editor`路径下，否则不会被识别为Editor脚本
+3. 点击`Tools > Auto Import TMP Essentials`可以自动导入TMP  Essentials包，并且不会重复导入，不需要等到创建一个使用TMP的UI组件时再选择导入
+
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTM2ODQ4Njg5OV19
+eyJoaXN0b3J5IjpbMTczNjQxMDQ2MV19
 -->
