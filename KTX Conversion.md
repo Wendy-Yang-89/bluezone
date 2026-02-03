@@ -19,8 +19,8 @@
 
 
 ##### AGP
-- f
+- for
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE0Mjg1NTI2MjVdfQ==
+eyJoaXN0b3J5IjpbLTE3OTEyMTgzNTZdfQ==
 -->
