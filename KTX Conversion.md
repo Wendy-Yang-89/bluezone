@@ -1,4 +1,6 @@
 # KTX Format Conversion
+
+## KTX-Sofrwa
 1. others -> .ktx
 	```sh
 	toktx [options] <outfile> [<infile>.{jpg,png,pam,pgm,ppm} ...]
@@ -42,6 +44,6 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTk1MDQ0MTE2MCwxMTg1NDMxNDUwLC0xOD
-cwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbMjE0MTY5MzQ3NCwxOTUwNDQxMTYwLDExOD
+U0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ==
 -->
