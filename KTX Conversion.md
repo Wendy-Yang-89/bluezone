@@ -56,11 +56,11 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
     -   优势：支持可视化编辑（如亮度调整、模糊），适合处理后再导出。
 
 # Q&A
-1. toktx cannot recognize *.ppm* format input 
+1. Q: toktx cannot recognize *.ppm* format input 
 	> toktx: failed to create image from belfast_sunset_puresky_4k.ppm(0,0). No image plugin recognized the format of "belfast_sunset_puresky_4k.ppm". 
 	Is it a file format that we don't know about?
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTcyOTIzMzk3MCwxNzI5MzYyMjc0LDE5NT
+eyJoaXN0b3J5IjpbMTg0NTE2MTEzNywxNzI5MzYyMjc0LDE5NT
 A0NDExNjAsMTE4NTQzMTQ1MCwtMTg3MDMxNTc3NCwtMTk1ODAw
 OTQ5OF19
 -->
