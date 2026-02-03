@@ -43,10 +43,16 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 ### Tool: cmftStudio
 https://github.com/dariomanesku/cmftStudio/releases
 
-####
+### TextureLab
+
+1.  下载地址：[https://github.com/njbrown/texturelab](https://github.com/njbrown/texturelab)
+2.  操作步骤：
+    -   拖入 HDR 文件 → 添加 `KTX Exporter` 节点。
+    -   配置压缩格式（BC6H 用于 HDR）→ 导出 KTX 文件。
+    -   优势：支持可视化编辑（如亮度调整、模糊），适合处理后再导出。
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE1NTk4NTcwNjQsMTk1MDQ0MTE2MCwxMT
-g1NDMxNDUwLC0xODcwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbNjc4MDUwMDc0LDE5NTA0NDExNjAsMTE4NT
+QzMTQ1MCwtMTg3MDMxNTc3NCwtMTk1ODAwOTQ5OF19
 -->
