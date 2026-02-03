@@ -65,8 +65,13 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 	- **P6 格式（二进制）**：`toktx` 唯一支持的 PPM 格式，文件体积小，数据以二进制存储，无冗余注释。
 	- **P3 格式（ASCII）**：人类可读的文本格式，`toktx` 不支持，会直接报「无法识别格式」错误。
 	另外，`toktx` 仅支持 **3 通道（RGB）** 的 PPM，不支持 4 通道（RGBA），若生成的 PPM 包含 Alpha 通道，也会识别失败。
+	修正后的命令：
+	```bat
+	# 核心命令：强制生成 P6 二进制 PPM + 3 通道 RGB + 16 位深度 + 无注释 
+	magick input.hdr -gamma 1.0 -depth 16 -alpha off -strip -format ppm -define ppm:format=png output.ppm
+	```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTU3NDIwMzE1Nyw0NTQwNTk1MjQsMTcyOT
-M2MjI3NCwxOTUwNDQxMTYwLDExODU0MzE0NTAsLTE4NzAzMTU3
-NzQsLTE5NTgwMDk0OThdfQ==
+eyJoaXN0b3J5IjpbLTMyNTEwODU5LDQ1NDA1OTUyNCwxNzI5Mz
+YyMjc0LDE5NTA0NDExNjAsMTE4NTQzMTQ1MCwtMTg3MDMxNTc3
+NCwtMTk1ODAwOTQ5OF19
 -->
