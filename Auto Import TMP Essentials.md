@@ -1,5 +1,5 @@
 # Scripts for Auto Import TMP Essentials
-
+1. 创建Editor脚本
 ```csharp
 using UnityEditor;
 using TMPro;
@@ -15,5 +15,5 @@ public class AutoImportTMPEssentials : Editor
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjU0MzUyNTkwXX0=
+eyJoaXN0b3J5IjpbMTgzMDcxMzk1OV19
 -->
