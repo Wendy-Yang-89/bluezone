@@ -4,6 +4,7 @@
 	toktx [options] <outfile> [<infile>.{jpg,png,pam,pgm,ppm} ...]
 	```
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/toktx.html
+	> **Note**: 
 3. .kxt -> .kxt2
 	```sh
 	ktx2ktx2 [options] [<infile> ...]
@@ -38,6 +39,6 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTkwMTY3NzEyOCwtMTg3MDMxNTc3NCwtMT
-k1ODAwOTQ5OF19
+eyJoaXN0b3J5IjpbMjg2Nzk3NDgsLTE4NzAzMTU3NzQsLTE5NT
+gwMDk0OThdfQ==
 -->
