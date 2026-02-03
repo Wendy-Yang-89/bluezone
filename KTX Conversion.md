@@ -40,10 +40,10 @@ toktx --genmipmap --bc6h hdr_texture.ktx input.hdr
 ```
 ###### 6-Sided Cubemap Generation
 
-
+### 
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODI4ODUyOTcyLDE5NTA0NDExNjAsMTE4NT
-QzMTQ1MCwtMTg3MDMxNTc3NCwtMTk1ODAwOTQ5OF19
+eyJoaXN0b3J5IjpbLTEzNTAxNjI5OTMsMTk1MDQ0MTE2MCwxMT
+g1NDMxNDUwLC0xODcwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
 -->
