@@ -44,7 +44,7 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 #### cmftStudio
 -   下载地址：[https://github.com/dariomanesku/cmftStudio/releases](https://github.com/dariomanesku/cmftStudio/releases)
 -   操作步骤：
-    -   导入 HDR 全景图 → 选择输出类型为 `KTX`/`KTX2`。
+    -  右侧面板选中`Environment`标签页→点击`Edit`→`Skybox`→`Browse`→ 选择输入tian'k。
     -   配置参数（分辨率、mipmap、压缩格式 BC6H）→ 点击 `Run` 导出。
     -   优势：自动处理坐标转换，无需担心天空盒颠倒问题。
 
@@ -61,8 +61,8 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMzE5NTAxNTc5LC0xMzkzODgwODEsNjU3Mj
-UyMzQ0LDE5OTY2NDAyNTUsNDU0MDU5NTI0LDE3MjkzNjIyNzQs
-MTk1MDQ0MTE2MCwxMTg1NDMxNDUwLC0xODcwMzE1Nzc0LC0xOT
-U4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbLTgxNTg4OTYzLDMxOTUwMTU3OSwtMTM5Mz
+g4MDgxLDY1NzI1MjM0NCwxOTk2NjQwMjU1LDQ1NDA1OTUyNCwx
+NzI5MzYyMjc0LDE5NTA0NDExNjAsMTE4NTQzMTQ1MCwtMTg3MD
+MxNTc3NCwtMTk1ODAwOTQ5OF19
 -->
