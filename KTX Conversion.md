@@ -44,8 +44,8 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 #### cmftStudio
 -   下载地址：[https://github.com/dariomanesku/cmftStudio/releases](https://github.com/dariomanesku/cmftStudio/releases)
 -   操作步骤：
-    -  右侧面板选中`Environment`标签页→点击`Edit`→`Skybox`→`Browse`→ 选择输入tian'k。
-    -   配置参数（分辨率、mipmap、压缩格式 BC6H）→ 点击 `Run` 导出。
+    -  右侧面板选中`Environment`标签页→点击`Edit`→`Skybox`→`Browse`→ 选择输入天空盒纹理。
+    -   点击 `Save` 根据选定格式导出天空盒纹理。
     -   优势：自动处理坐标转换，无需担心天空盒颠倒问题。
 
 #### cmft
@@ -61,8 +61,8 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTgxNTg4OTYzLDMxOTUwMTU3OSwtMTM5Mz
-g4MDgxLDY1NzI1MjM0NCwxOTk2NjQwMjU1LDQ1NDA1OTUyNCwx
-NzI5MzYyMjc0LDE5NTA0NDExNjAsMTE4NTQzMTQ1MCwtMTg3MD
-MxNTc3NCwtMTk1ODAwOTQ5OF19
+eyJoaXN0b3J5IjpbMTQ5ODk3MDU2NywzMTk1MDE1NzksLTEzOT
+M4ODA4MSw2NTcyNTIzNDQsMTk5NjY0MDI1NSw0NTQwNTk1MjQs
+MTcyOTM2MjI3NCwxOTUwNDQxMTYwLDExODU0MzE0NTAsLTE4Nz
+AzMTU3NzQsLTE5NTgwMDk0OThdfQ==
 -->
