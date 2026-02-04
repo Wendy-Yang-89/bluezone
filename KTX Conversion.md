@@ -35,8 +35,8 @@ toktx --genmipmap hdr_texture.ktx input.hdr
 
 ###### *.ktx2* Generation
 ```sh
-# 完整命令：生成 mipmap + BC6H HDR 压缩 + 输出 KTX1 
-toktx --genmipmap hdr_texture.ktx input.hdr
+# HDR 全景图 → KTX2 立方体贴图（UASTC 高质量压缩） 
+toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubemap-format equirectangular skybox.ktx2 environment.hdr
 ```
 ###### 6-Sided Cubemap Generation
 
@@ -57,7 +57,8 @@ toktx --genmipmap hdr_texture.ktx input.hdr
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNjU3MjUyMzQ0LDE5OTY2NDAyNTUsNDU0MD
-U5NTI0LDE3MjkzNjIyNzQsMTk1MDQ0MTE2MCwxMTg1NDMxNDUw
-LC0xODcwMzE1Nzc0LC0xOTU4MDA5NDk4XX0=
+eyJoaXN0b3J5IjpbLTEzOTM4ODA4MSw2NTcyNTIzNDQsMTk5Nj
+Y0MDI1NSw0NTQwNTk1MjQsMTcyOTM2MjI3NCwxOTUwNDQxMTYw
+LDExODU0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ
+==
 -->
