@@ -42,14 +42,14 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 
 ### Tool
 #### cmftStudio
--   下载地址：[https://github.com/dariomanesku/cmft](https://github.com/dariomanesku/cmft)
+-   下载地址：[https://github.com/dariomanesku/cmftStudio/releases](https://github.com/dariomanesku/cmftStudio/releases)
 -   操作步骤：
     -   导入 HDR 全景图 → 选择输出类型为 `KTX`/`KTX2`。
     -   配置参数（分辨率、mipmap、压缩格式 BC6H）→ 点击 `Run` 导出。
     -   优势：自动处理坐标转换，无需担心天空盒颠倒问题。
 
 #### cmft
-下载地址：[https://github.com/dariomanesku/cmft/releases](https://github.com/dariomanesku/cmft/releases)
+下载地址：[https://github.com/dariomanesku/cmft](https://github.com/dariomanesku/cmft)
 
 #### TextureLab
 
@@ -61,7 +61,7 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbOTEwOTg0MDE1LC0xMzkzODgwODEsNjU3Mj
+eyJoaXN0b3J5IjpbMzE5NTAxNTc5LC0xMzkzODgwODEsNjU3Mj
 UyMzQ0LDE5OTY2NDAyNTUsNDU0MDU5NTI0LDE3MjkzNjIyNzQs
 MTk1MDQ0MTE2MCwxMTg1NDMxNDUwLC0xODcwMzE1Nzc0LC0xOT
 U4MDA5NDk4XX0=
