@@ -8,7 +8,6 @@
 	Usage Reference: https://github.khronos.org/KTX-Software/ktxtools/toktx.html
 	> **Note**: toktx 不支持.hdr/.exr格式的输入，需要预先转换成其支持的格式
 	> - ImageMagick: https://imagemagick.org/script/download.php
-	> - 
 	
 3. .kxt -> .kxt2
 	```sh
@@ -61,8 +60,8 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTQ5ODk3MDU2NywzMTk1MDE1NzksLTEzOT
-M4ODA4MSw2NTcyNTIzNDQsMTk5NjY0MDI1NSw0NTQwNTk1MjQs
-MTcyOTM2MjI3NCwxOTUwNDQxMTYwLDExODU0MzE0NTAsLTE4Nz
-AzMTU3NzQsLTE5NTgwMDk0OThdfQ==
+eyJoaXN0b3J5IjpbLTIwNTk3MjI2ODIsMTQ5ODk3MDU2NywzMT
+k1MDE1NzksLTEzOTM4ODA4MSw2NTcyNTIzNDQsMTk5NjY0MDI1
+NSw0NTQwNTk1MjQsMTcyOTM2MjI3NCwxOTUwNDQxMTYwLDExOD
+U0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ==
 -->
