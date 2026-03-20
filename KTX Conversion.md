@@ -1,4 +1,4 @@
-# KTX Format Conversion
+# KTX Format Conversion (deprecated)
 
 ### KTX-Softwarer commands
 1. others -> .ktx
@@ -60,8 +60,8 @@ toktx --t2 --cubemap --genmipmap --encode uastc --uastc_quality 4 --input-cubema
 
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIwNTk3MjI2ODIsMTQ5ODk3MDU2NywzMT
-k1MDE1NzksLTEzOTM4ODA4MSw2NTcyNTIzNDQsMTk5NjY0MDI1
-NSw0NTQwNTk1MjQsMTcyOTM2MjI3NCwxOTUwNDQxMTYwLDExOD
-U0MzE0NTAsLTE4NzAzMTU3NzQsLTE5NTgwMDk0OThdfQ==
+eyJoaXN0b3J5IjpbLTgzMDQxMDA1MCwxNDk4OTcwNTY3LDMxOT
+UwMTU3OSwtMTM5Mzg4MDgxLDY1NzI1MjM0NCwxOTk2NjQwMjU1
+LDQ1NDA1OTUyNCwxNzI5MzYyMjc0LDE5NTA0NDExNjAsMTE4NT
+QzMTQ1MCwtMTg3MDMxNTc3NCwtMTk1ODAwOTQ5OF19
 -->
