@@ -5,8 +5,9 @@
 2. Place it under `${UNITY_PROJ_NAME}/Assets/Resources/Textures`
 3. Copy the original hdr texture and edit its property in the Inspector
 	- Change the `Texture Shape` from `2D` to `Cube`
-	- Override the settings for OpenHarmony platform
-	
+	- Override the settings for OpenHarmony platform as below
+		![为OpenHarmony平台设置纹理属性](/imgs/2026-03-20/7iGFCGYIaGhrnTqU.png)
+
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE1OTkxMDgyMjFdfQ==
+eyJoaXN0b3J5IjpbNDU0Mzk4MTM3XX0=
 -->
