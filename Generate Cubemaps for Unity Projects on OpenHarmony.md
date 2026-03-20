@@ -14,10 +14,8 @@
 		- Click `Edit`
 		- Click `Skybox > Browse` for loading textures to be transferred
 		- Click `Skybox > Save` 
-		- Select `.hdr` for `File Type` and `Facelist` for `Output Type`
-    -  	右侧面板选中`Environment`标签页→点击`Edit`→`Skybox`→`Browse`→ 选择输入天空盒纹理。
-    -   点击 `Save` 根据选定格式导出天空盒纹理。
-    -   优势：自动处理坐标转换，无需担心天空盒颠倒问题。
+		- Select `.hdr` for `File type` and `Facelist` for `Output type`
+		- Click `Action > Save`
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExNDk3NzMwNSwtMTA2MzE0ODcxNV19
+eyJoaXN0b3J5IjpbNzMxODIwOTg3LC0xMDYzMTQ4NzE1XX0=
 -->
