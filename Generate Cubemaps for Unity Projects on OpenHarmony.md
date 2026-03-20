@@ -14,8 +14,10 @@
 		- Click `Edit`
 		- Click `Skybox > Browse` for loading textures to be transferred
 		- Click `Skybox > Save` 
+		- Choose
 		- Select `.hdr` for `File type` and `Facelist` for `Output type`
 		- Click `Action > Save`
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNzMxODIwOTg3LC0xMDYzMTQ4NzE1XX0=
+eyJoaXN0b3J5IjpbMTk4NDY5ODMxLDczMTgyMDk4NywtMTA2Mz
+E0ODcxNV19
 -->
