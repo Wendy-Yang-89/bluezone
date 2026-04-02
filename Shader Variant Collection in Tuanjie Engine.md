@@ -50,7 +50,7 @@ Since you are optimizing for OpenHarmony, keep these points in mind for your **S
 
 OpenGL Shading Language
 
-``
+```GLSL
 // Build generates: None and FOG_ON (both versions included regardless)
 #pragma multi_compile _ FOG_ON 
 
@@ -60,5 +60,6 @@ OpenGL Shading Language
 
 > **Expert Guide**: As you optimize your Skybox Manager, are you considering moving some rarely used features (like 3D Layout or Mirroring) from `multi_compile` to `shader_feature` to reduce the final package size?
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNDMwMzIyNjEyLC0xMDkxMzAwMTE2XX0=
+eyJoaXN0b3J5IjpbLTEzNDEyNTg1NTYsLTEwOTEzMDAxMTZdfQ
+==
 -->
