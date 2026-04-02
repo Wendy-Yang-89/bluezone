@@ -1,6 +1,92 @@
 # Shader Variant Collection in Tuanjie Engine
 
+In the Unity/Tuanjie rendering pipeline, **Shader Variant Collection (SVC)** is more than just a checklist—it's a lifesaver for performance on mobile platforms, especially **OpenHarmony (Vulkan)**. Here is a detailed breakdown of the concepts and workflows.
+
 ## Shader Variant
+### 1. What is a Shader Variant? 
+
+GPUs hate logical branching (like `if-else`) during rendering. To maximize throughput, the compiler generates multiple hard-coded "clones" of a shader for every combination of enabled features (Keywords).
+
+-   **Variant Explosion (Permutation)**:
+    
+    If your shader defines:
+    
+    -   `#pragma multi_compile _ FOG_ON` (2 states)
+        
+    -   `#pragma multi_compile _ LIGHTMAP_ON` (2 states)
+        
+    -   `#pragma multi_compile _ HIGH_QUALITY` (2 states)
+        
+    
+    The total number of variants is $2 \times 2 \times 2 = 8$. A complex shader with 10 toggles results in $2^{10} = 1024$ variants. This explains why shader compilation can take hours for large projects.
+    
+
+----------
+
+### 2. Why do you need SVC? (The "Pitfall" Guide)
+
+#### **A. Avoiding the "Pink Screen of Death" (Stripping)**
+
+Unity optimizes the build by "stripping" variants that aren't used by any **static material asset** in the scene.
+
+-   **The Trap**: Effects controlled purely via script (e.g., `material.EnableKeyword("LOW_HEALTH_GLOW")`).
+    
+-   **Result**: At runtime, if you enable a keyword that was stripped during the build, the GPU has no machine code to run, resulting in a pink "Error Shader." SVC forces Unity to keep these dynamic variants in the build.
+    
+
+#### **B. Eliminating "First-Sight Stutter" (Runtime Compilation)**
+
+On OpenHarmony (Vulkan), the shader binary (SPIR-V) often requires a final link/compile pass by the driver before the first frame is rendered.
+
+-   **The Hitch**: Without pre-warming, the main thread will hang for hundreds of milliseconds while the GPU compiles the shader during a heavy action or skybox swap.
+    
+-   **Result**: The player experiences a noticeable frame drop or "hitch."
+    
+
+----------
+
+### 3. Workflow: Efficient SVC Collection
+
+#### **Practical: Auto-Capture Process (The Pro Method)**
+
+1.  **Clear Cache**: Run the game in the Unity Editor.
+    
+2.  **Playthrough**: Play through the game manually, ensuring all effects, skybox swaps, and lighting conditions are triggered.
+    
+3.  **Capture**:
+    
+    -   Go to `Project Settings > Graphics`.
+        
+    -   Locate `Shader Loading` at the bottom.
+        
+    -   Click **"Save to asset"**. This exports all variants currently resident in memory to an SVC file.
+        
+
+#### **Code: The WarmUp Logic**
+
+It is recommended to run this during a loading screen. Note that `WarmUp` is a synchronous, heavy operation.
+
+C#
+
+```
+using UnityEngine;
+
+public class ShaderPreloader : MonoBehaviour
+{
+    public ShaderVariantCollection globalSVC;
+
+    void Awake()
+    {
+        if (globalSVC != null && !globalSVC.isWarmedUp)
+        {
+            double startTime = Time.realtimeSinceStartupAsDouble;
+            // Pre-compiles all variants in the collection and uploads to GPU
+            globalSVC.WarmUp();
+            Debug.Log($"Shader Pre-warm complete in {Time.realtimeSinceStartupAsDouble - startTime}s");
+        }
+    }
+}
+```
 ### `multi_compile` & `shader_feature`
 In the Unity/Tuanjie engine shader development, `multi_compile` and `shader_feature` are the two core directives used to define **Shader Variants**. Think of them as "preprocessor macros" that determine which combinations of shader code will be compiled into your final application bundle.
 
@@ -52,6 +138,6 @@ OpenGL Shading Language
 #pragma shader_feature _ NORMAL_ON 
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE4ODYzNDM5MDIsLTEwOTEzMDAxMTZdfQ
-==
+eyJoaXN0b3J5IjpbLTExMjY1MzIxOTUsLTE4ODYzNDM5MDIsLT
+EwOTEzMDAxMTZdfQ==
 -->
