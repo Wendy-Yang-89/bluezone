@@ -1,7 +1,7 @@
 # Shader Variant Collection in Tuanjie Engine
 
 
-## `multi_compile` & `shader_feature`
+#### `multi_compile` & `shader_feature`
 In the Unity/Tuanjie engine shader development, `multi_compile` and `shader_feature` are the two core directives used to define **Shader Variants**. Think of them as "preprocessor macros" that determine which combinations of shader code will be compiled into your final application bundle.
 
 Understanding the difference is critical for managing build size and avoiding the dreaded "pink shader" error on mobile platforms like **OpenHarmony**.
@@ -117,5 +117,5 @@ OpenGL Shading Language
 
 > **Expert Guide**: As you optimize your Skybox Manager, are you considering moving some rarely used features (like 3D Layout or Mirroring) from `multi_compile` to `shader_feature` to reduce the final package size?
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTc2MzA1MjMwMCwtMTA5MTMwMDExNl19
+eyJoaXN0b3J5IjpbLTE1Nzc5NjQzNiwtMTA5MTMwMDExNl19
 -->
