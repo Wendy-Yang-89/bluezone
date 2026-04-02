@@ -3,8 +3,6 @@
 In the Unity/Tuanjie rendering pipeline, **Shader Variant Collection (SVC)** is more than just a checklist—it's a lifesaver for performance on mobile platforms, especially **OpenHarmony (Vulkan)**. Here is a detailed breakdown of the concepts and workflows.
 
 ## Shader Variant
-### 1. What is a Shader Variant? 
-
 GPUs hate logical branching (like `if-else`) during rendering. To maximize throughput, the compiler generates multiple hard-coded "clones" of a shader for every combination of enabled features (Keywords).
 
 -   **Variant Explosion (Permutation)**:
@@ -138,6 +136,6 @@ OpenGL Shading Language
 #pragma shader_feature _ NORMAL_ON 
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExMjY1MzIxOTUsLTE4ODYzNDM5MDIsLT
+eyJoaXN0b3J5IjpbLTEwMDcxNTYzNjUsLTE4ODYzNDM5MDIsLT
 EwOTEzMDAxMTZdfQ==
 -->
