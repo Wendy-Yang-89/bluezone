@@ -11,11 +11,11 @@
 2.  若上述目录不存在则找到默认路径: C:\Users\${UserName}\.ohos\config
 3.  删掉material
 4.  选择 `File -> Invalidate Caches`，全部勾选后点击 `Invalidate and Restart` 重启IDE
-5.  在 `File ->Project Structure ->Signing Config` jie'mi重新生成签名文件。
+5.  在 `File ->Project Structure ->Signing Config` 界面重新生成签名文件
 
 #### Referecens
 1. https://segmentfault.com/q/1010000045298737
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE5NTM5OTYzOTVdfQ==
+eyJoaXN0b3J5IjpbMTg5NjY4NjgxNF19
 -->
