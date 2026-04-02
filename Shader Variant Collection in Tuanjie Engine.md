@@ -64,27 +64,17 @@ OpenGL Shading Language
 ```
 
 ## Shader Variant Collection
-### 2. Why do you need SVC? (The "Pitfall" Guide)
-
+### Why do we need SVC?
 #### **A. Avoiding the "Pink Screen of Death" (Stripping)**
-
 Unity optimizes the build by "stripping" variants that aren't used by any **static material asset** in the scene.
-
 -   **The Trap**: Effects controlled purely via script (e.g., `material.EnableKeyword("LOW_HEALTH_GLOW")`).
-    
 -   **Result**: At runtime, if you enable a keyword that was stripped during the build, the GPU has no machine code to run, resulting in a pink "Error Shader." SVC forces Unity to keep these dynamic variants in the build.
-    
 
 #### **B. Eliminating "First-Sight Stutter" (Runtime Compilation)**
-
 On OpenHarmony (Vulkan), the shader binary (SPIR-V) often requires a final link/compile pass by the driver before the first frame is rendered.
-
 -   **The Hitch**: Without pre-warming, the main thread will hang for hundreds of milliseconds while the GPU compiles the shader during a heavy action or skybox swap.
-    
 -   **Result**: The player experiences a noticeable frame drop or "hitch."
-    
 
-----------
 
 ### 3. Workflow: Efficient SVC Collection
 
@@ -129,6 +119,6 @@ public class ShaderPreloader : MonoBehaviour
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEzOTg3OTc4NzMsLTE4ODYzNDM5MDIsLT
+eyJoaXN0b3J5IjpbLTIwMzIxNDM3MjgsLTE4ODYzNDM5MDIsLT
 EwOTEzMDAxMTZdfQ==
 -->
