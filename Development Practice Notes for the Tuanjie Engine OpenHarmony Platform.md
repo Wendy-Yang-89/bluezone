@@ -2,11 +2,11 @@
 
 ### 1. Shader 变体剥离与丢失 (Stripping & Variant Loss)
 
-在移动端 Vulkan 模式下，Shader 变体（Variant）的丢失会导致渲染呈现“粉红错误色”或“直接回退到默认 Lit”。
+在移动端 `Vulkan` 模式下，Shader 变体（Variant）的丢失会导致渲染错误或“直接回退到默认 *Lit*”。
 
 -   **面板操作：显式包含 Shader**
     
-    -   路径：`Project Settings > Graphics > Always Included Shaders`。
+    -   路径：`Edit > Project Settings > Graphics > Always Included Shaders`。
         
     -   **操作**：将脚本中通过 `Shader.Find` 调用的所有 Shader（如 `Skybox/Procedural`）手动拖入列表。
         
@@ -40,5 +40,5 @@
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2MjA5OTYyMzJdfQ==
+eyJoaXN0b3J5IjpbMjExNzIxMDMwMF19
 -->
