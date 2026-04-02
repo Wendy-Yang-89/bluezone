@@ -7,15 +7,15 @@
 ![Signature Fault Screen Capture](/imgs/2026-04-02/aZy5d8UqIAhrrcMY.png)![](https://segmentfault.com/img/bVdeeqW)
 
 ### Solution
-1.  在 `File ->Project Structure ->Signing Config` 下找到签名文件存储目录
-2.  若上述目录不存在则找到默认路径: C:\Users\${UserName}\.ohos\config
-3.  删掉material
-4.  选择 `File -> Invalidate Caches`，全部勾选后点击 `Invalidate and Restart` 重启IDE
-5.  在 `File ->Project Structure ->Signing Config` 界面重新生成签名文件
+1. Locate the signature file storage directory under `File -> Project Structure -> Signing Config`.
+2. If the above directory does not exist, find the default path: `C:\Users\${UserName}\.ohos\config`
+3. Delete the `material` directory.
+4. Select `File -> Invalidate Caches`, check all options, and click `Invalidate and Restart` to restart the IDE.
+5. Regenerate the signing file in the `File -> Project Structure -> Signing Config` interface.
 
 #### Referecens
 1. https://segmentfault.com/q/1010000045298737
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTg5NjY4NjgxNF19
+eyJoaXN0b3J5IjpbNjk5NjA3Nzc4XX0=
 -->
