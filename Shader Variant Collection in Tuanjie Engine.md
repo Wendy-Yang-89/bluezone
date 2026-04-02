@@ -34,22 +34,16 @@ Understanding the difference is critical for managing build size and avoiding th
 | **Keyword Scope** | Usually Global Keywords | Usually Local Keywords | 
 | **Runtime Switching** | Safe to toggle via script anytime | Script toggling may fail if stripped | 
 | **Build Size Impact** | High (lots of variants) | Low (on-demand only) | 
-| **Typical Examples** | `DIRECTIONAL`, `SHADOWS_SCREEN`, `FOG_EXP` | `_NORMALMAP`, `_ALPHATEST_ON` |
+| **Typical Examples** | `DIRECTIONAL`, `SHADOWS_SCREEN`, `FOG_EXP` | `_NORMALMAP`, `_ALPHATEST_ON`|
 
 #### 4. Best Practices for OpenHarmony (Vulkan) Development
-
 Since you are optimizing for OpenHarmony, keep these points in mind for your **Shader Variant Collection (SVC)**:
-
 1.  **The Dynamic Switching Trap**: If your Skybox Manager toggles effects (e.g., "High Quality Sun" vs "No Sun") using `shader_feature`, and your initial material doesn't have the sun enabled, the build won't include the "Sun" variant. It will fail on the device.
-    
-2.  **Forced Inclusion**: If you must use `shader_feature` to keep the build size small but still need to toggle it via script, you **must** manually add those keyword combinations to your **Shader Variant Collection**. This tells the engine: "I'll need this later, don't strip it!"
-    
+2.  **Forced Inclusion**: If you must use `shader_feature` to keep the build size small but still need to toggle it via script, you **must** manually add those keyword combinations to your **Shader Variant Collection**. This tells the engine: "I'll need this later, don't strip it!" 
 3.  **Vulkan Strictness**: The Vulkan drivers on OpenHarmony are very strict. If a variant is stripped via `shader_feature` and you try to force it active, Vulkan might throw a driver-level error or cause the rendering process to hang.
 
 #### 5. Code Example
-
 OpenGL Shading Language
-
 ```GLSL
 // Build generates: None and FOG_ON (both versions included regardless)
 #pragma multi_compile _ FOG_ON 
@@ -57,9 +51,7 @@ OpenGL Shading Language
 // Build generates: NORMAL_ON ONLY if a material has it checked in the Inspector
 #pragma shader_feature _ NORMAL_ON 
 ```
-
-> **Expert Guide**: As you optimize your Skybox Manager, are you considering moving some rarely used features (like 3D Layout or Mirroring) from `multi_compile` to `shader_feature` to reduce the final package size?
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEzNDEyNTg1NTYsLTEwOTEzMDAxMTZdfQ
+eyJoaXN0b3J5IjpbLTE4ODYzNDM5MDIsLTEwOTEzMDAxMTZdfQ
 ==
 -->
