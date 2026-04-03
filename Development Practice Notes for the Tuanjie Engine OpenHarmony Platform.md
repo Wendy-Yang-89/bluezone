@@ -30,21 +30,24 @@ This is the #1 cause of the "Works in Editor, Crashes on Mobile" issue.
 
 #### **Example Script**:
 ```csharp
-if (material!= null)
-{
-    if (Application.isEditor && !Application.isPlaying)
-    {
-        DestroyImmediate(material);
-    }
-    else
-    {
-        Destroy(material);
-    }
-    material= null;
-    Debug.Log("material has been destroyed!");
+private void OnDestroy()
+	if (material!= null)
+	{
+	    if (Application.isEditor && !Application.isPlaying)
+	    {
+	        DestroyImmediate(material);
+	    }
+	    else
+	    {
+	        Destroy(material);
+	    }
+	    material= null;
+	    Debug.Log("material has been destroyed!");
+	}
 }
 ```
 
+#### OnValidate()
 
 
 
@@ -58,6 +61,6 @@ if (material!= null)
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTM5NTY5MTU5NywxMTk4NTk4Njc0LDIxMT
+eyJoaXN0b3J5IjpbMTI5ODE1MTQ0NywxMTk4NTk4Njc0LDIxMT
 cyMTAzMDBdfQ==
 -->
