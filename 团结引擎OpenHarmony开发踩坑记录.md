@@ -1,7 +1,7 @@
 # 团结引擎OpenHarmony开发踩坑记录
 
-1. 打包成应用后切换材质/shader后效果错误，可能是没有在脚本中保留对shader的引用，引擎无法追踪到这个shader会被使用，打包过程中该shader被剔除
-2. 添加了很多附加光源但是在打包应用中只有主光源，无附加光源渲染贡献
+ 1. 打包成应用后切换材质/shader后效果错误，可能是没有在脚本中保留对shader的引用，引擎无法追踪到这个shader会被使用，打包过程中该shader被剔除
+ 2. 添加了很多附加光源但是在打包应用中只有主光源，无附加光源渲染贡献
 	- 在 `Edit > Project Settings > Quality` 中确认打包目标平台的渲染质量等级
 		- 有对勾说明该平台支持对应渲染质量等级
 		- 绿色对勾对应该平台默认使用的渲染质量等级
@@ -12,20 +12,22 @@
 		| `Perfomant` | URP-Perfomant.asset | URP-Perfomant-Renderer.asset | 
 		| `Balanced` | URP-Balanced.asset | URP-Balanced-Renderer.asset | 
 		| `High Fidelity` | URP-HighFidelity.asset | URP-HighFidelity-Renderer.asset |
-3. 渲染管线优先级与覆盖规则
+ 3. 渲染管线优先级与覆盖规则
 	Unity手册：https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Rendering.GraphicsSettings-currentRenderPipeline.html
 	- **优先级 1（最高）**：`QualitySettings.renderPipeline` 对应当前质量等级设置的渲染管线资产，会覆盖默认设置。 
 	- **优先级 2**：`GraphicsSettings.defaultRenderPipeline` 全局默认渲染管线，当质量设置未指定时生效。 
 	- **优先级 3（最低）**：内置渲染管线 Built-in Render Pipeline 当以上两项均未设置时，Unity 自动使用内置管线。 
 	- **最终生效结果**：`GraphicsSettings.currentRenderPipeline` 由 Unity 自动按上述优先级计算，返回当前实际使用的渲染管线。
-4. 全局光照同步问题
+ 4. 全局光照同步问题
 	- [**BUG**] 在脚本中动态加载或移除天空盒的代码 `SkyboxManager.cs` 中存在光照信息丢失问题。
 	- [**Reproduction**]
-			1. 点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
-			2. 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
-			3. 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
+		- 点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
+		- 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
+		3. 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
+	- 
 
-这是一个非常经典且让人头疼的 **环境光照同步（GI Sync）** 问题。模型变黑是因为你的代码在“移除”和“重新加载”的过程中，弄丢了场景的**环境光数据（Ambient Lighting）**。
+这是一个非常经典且让人头疼的 **环境光照同步（GI Sync）** 问题。
+模型变黑是因为你的代码在“移除”和“重新加载”的过程中，弄丢了场景的**环境光数据（Ambient Lighting）**。
 
 ### 问题的根源
 
@@ -132,6 +134,6 @@ private void UpdateSkyboxMaterial()
 
 **你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE0NTk4NTg5OTYsLTg2NDg3NDExMSwyMT
-A2NzUwMjI1LC0xNzM4ODQ2Nl19
+eyJoaXN0b3J5IjpbOTQxNTI1MzA0LC04NjQ4NzQxMTEsMjEwNj
+c1MDIyNSwtMTczODg0NjZdfQ==
 -->
