@@ -13,12 +13,12 @@
 		| `Balanced` | URP-Balanced.asset | URP-Balanced-Renderer.asset | 
 		| `High Fidelity` | URP-HighFidelity.asset | URP-HighFidelity-Renderer.asset |
 3. 渲染管线优先级与覆盖规则
-	
+	Unity手册：https://docs.unity.cn/cn/tuanjiemanual/ScriptReference/Rendering.GraphicsSettings-currentRenderPipeline.html
 	- **优先级 1（最高）**：`QualitySettings.renderPipeline` 当前质量等级设置的渲染管线资产，会覆盖默认设置。 
 	- **优先级 2**：`GraphicsSettings.defaultRenderPipeline` 全局默认渲染管线，当质量设置未指定时生效。 
 	- **优先级 3（最低）**：内置渲染管线 Built-in Render Pipeline 当以上两项均未设置时，Unity 自动使用内置管线。 
 	- **最终生效结果**：`GraphicsSettings.currentRenderPipeline` 由 Unity 自动按上述优先级计算，返回当前实际使用的渲染管线。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU4OTkwOTk5NywtODY0ODc0MTExLDIxMD
-Y3NTAyMjUsLTE3Mzg4NDY2XX0=
+eyJoaXN0b3J5IjpbLTU2MzYyMjE1LC04NjQ4NzQxMTEsMjEwNj
+c1MDIyNSwtMTczODg0NjZdfQ==
 -->
