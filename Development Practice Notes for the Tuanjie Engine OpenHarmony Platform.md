@@ -60,7 +60,7 @@ OnValidate() is triggered when values in the Inspector are modified or the scrip
 ##### 2. Packaging Notes 
 It is an **editor-only message** and is excluded from builds. If logic (e.g., calculating critical values) is placed inside, the value may remain at the default **0** after build. 
 
-##### 3.Safe Implementation 
+##### 3. Safe Implementation 
 Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations.
 
 
@@ -74,6 +74,6 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE3MjYxNjQzNDYsMTE5ODU5ODY3NCwyMT
-E3MjEwMzAwXX0=
+eyJoaXN0b3J5IjpbMTU5MTg1MjcyMiwxMTk4NTk4Njc0LDIxMT
+cyMTAzMDBdfQ==
 -->
