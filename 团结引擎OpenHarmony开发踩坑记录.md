@@ -19,13 +19,11 @@
 	- **优先级 3（最低）**：内置渲染管线 Built-in Render Pipeline 当以上两项均未设置时，Unity 自动使用内置管线。 
 	- **最终生效结果**：`GraphicsSettings.currentRenderPipeline` 由 Unity 自动按上述优先级计算，返回当前实际使用的渲染管线。
 4. 全局光照同步问题
-	> [**BUG**] 在脚本中动态加载或移除天空盒的代码 `SkyboxManager.cs` 中存在光照信息丢失问题。
-	   [**Reproduction**]
+	- [**BUG**] 在脚本中动态加载或移除天空盒的代码 `SkyboxManager.cs` 中存在光照信息丢失问题。
+	- [**Reproduction**]
 			1. 点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
 			2. 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
 			3. 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
-
-## Gemini said
 
 这是一个非常经典且让人头疼的 **环境光照同步（GI Sync）** 问题。模型变黑是因为你的代码在“移除”和“重新加载”的过程中，弄丢了场景的**环境光数据（Ambient Lighting）**。
 
@@ -134,6 +132,6 @@ private void UpdateSkyboxMaterial()
 
 **你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyMzU3MDM1MjQsLTg2NDg3NDExMSwyMT
+eyJoaXN0b3J5IjpbLTE0NTk4NTg5OTYsLTg2NDg3NDExMSwyMT
 A2NzUwMjI1LC0xNzM4ODQ2Nl19
 -->
