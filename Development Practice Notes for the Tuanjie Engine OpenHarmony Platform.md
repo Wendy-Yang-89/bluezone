@@ -62,7 +62,7 @@ OnValidate() is triggered when values in the Inspector are modified or the scrip
 It is an **editor-only message** and is excluded from builds. If logic (e.g., calculating critical values) is placed inside, the value may remain at the default **0** after build. 
 
 ##### Safe Implementation 
-Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations.
+Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations or it will .
 
 ### 3. Reference vs. Instantiation 
 
@@ -81,7 +81,7 @@ Differences For inconsistent rendering performance on HarmonyOS (OHOS), always c
 - **Shadow Distance**: The default shadow distance on mobile is usually very short (e.g., 20-50). In large scenes, distant areas will appear dark, which is often mistaken for broken lighting. 
 - **Color Space**: Ensure both HarmonyOS and PC platforms use **Linear** color space. If one uses Gamma and the other Linear, screen brightness will differ significantly.
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNzM0MzExMjExLC02NjkyODUyOTMsMTc4MD
-AwODc3MCwyMDQ1NDMzMzgwLDExOTg1OTg2NzQsMjExNzIxMDMw
-MF19
+eyJoaXN0b3J5IjpbLTEyMTM1NDU4NTUsNzM0MzExMjExLC02Nj
+kyODUyOTMsMTc4MDAwODc3MCwyMDQ1NDMzMzgwLDExOTg1OTg2
+NzQsMjExNzIxMDMwMF19
 -->
