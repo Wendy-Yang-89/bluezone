@@ -29,38 +29,39 @@
 	- [**Solution**]
 		- 在修改天空盒材质的时候先修改 `ambientMode` 为纯色，再改回天空盒
 		- 本质上是手动触发了 Unity 内部渲染状态的 **Dirty Flag**，强制触发全局光照环境光的更新
+		- 示例代码
+		```csharp
+		private void ApplySkyboxToScene()
+		{
+		    if (skybox != null)
+		    {
+		        // 1. 设置天空盒材质
+		        RenderSettings.skybox = skybox;
 
-```csharp
-private void ApplySkyboxToScene()
-{
-    if (skybox != null)
-    {
-        // 1. 设置天空盒材质
-        RenderSettings.skybox = skybox;
+		        // 2. 先强制指定环境光来源为纯色，然后再重新设置为天空盒
+		        RenderSettings.ambientMode = AmbientMode.Flat;
+		        RenderSettings.ambientMode = AmbientMode.Skybox;
 
-        // 2. 先强制指定环境光来源为纯色，然后再重新设置为天空盒
-        RenderSettings.ambientMode = AmbientMode.Flat;
-        RenderSettings.ambientMode = AmbientMode.Skybox;
+		        // 3. 强制触发环境光和反射探针的全面更新
+		        // 在某些 Unity 版本中，仅仅 UpdateEnvironment 是不够的
+		        DynamicGI.UpdateEnvironment();
+		        
+		        // 如果是在编辑器环境下，有时需要额外标记场景已改变
+		        #if UNITY_EDITOR
+		        if (!Application.isPlaying)
+		        {
+		            EditorUtility.SetDirty(this);
+		            // 强制重绘场景视图以看到光照变化
+		            SceneView.RepaintAll();
+		        }
+		        #endif
 
-        // 3. 强制触发环境光和反射探针的全面更新
-        // 在某些 Unity 版本中，仅仅 UpdateEnvironment 是不够的
-        DynamicGI.UpdateEnvironment();
-        
-        // 如果是在编辑器环境下，有时需要额外标记场景已改变
-        #if UNITY_EDITOR
-        if (!Application.isPlaying)
-        {
-            EditorUtility.SetDirty(this);
-            // 强制重绘场景视图以看到光照变化
-            SceneView.RepaintAll();
-        }
-        #endif
-
-        Debug.Log("天空盒已应用，环境光已强制同步。");
-    }
-}
-```
+		        Debug.Log("天空盒已应用，环境光已强制同步。");
+		    }
+		}
+		```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyMjQ2NTYwODMsMTA2MzAzMjMzOCwtOD
-Y0ODc0MTExLDIxMDY3NTAyMjUsLTE3Mzg4NDY2XX0=
+eyJoaXN0b3J5IjpbODM2MDAyMDI3LC0xMjI0NjU2MDgzLDEwNj
+MwMzIzMzgsLTg2NDg3NDExMSwyMTA2NzUwMjI1LC0xNzM4ODQ2
+Nl19
 -->
