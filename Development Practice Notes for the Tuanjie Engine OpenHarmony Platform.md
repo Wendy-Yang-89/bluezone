@@ -30,11 +30,18 @@ This is the #1 cause of the "Works in Editor, Crashes on Mobile" issue.
 
 #### **Example Script**:
 ```csharp
-public ShaderVariantCollection myCollection;
-void Start() {
-    if (!myCollection.isWarmedUp) {
-        myCollection.WarmUp(); // 运行时提前编译，防止切换时卡顿
+if (material!= null)
+{
+    if (Application.isEditor && !Application.isPlaying)
+    {
+        DestroyImmediate(skybox);
     }
+    else
+    {
+        Destroy(skybox);
+    }
+    skybox = null;
+    Debug.Log("Skybox has been destroyed!");
 }
 ```
 
@@ -51,6 +58,6 @@ void Start() {
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTg5MjI1MzAzNSwxMTk4NTk4Njc0LDIxMT
+eyJoaXN0b3J5IjpbMTAwNTEwNjUzNSwxMTk4NTk4Njc0LDIxMT
 cyMTAzMDBdfQ==
 -->
