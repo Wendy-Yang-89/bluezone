@@ -22,9 +22,21 @@ The "Pink Screen" (Error Shader) on OpenHarmony devices occurs when the Vulkan d
 ### 2. Editor vs. Runtime Behavior Differences 
 This is the #1 cause of the "Works in Editor, Crashes on Mobile" issue. 
 
-#### Destroy vs DestroyImmediate | Function | Use Case | Behavior | |----------|----------|----------| | `Destroy` | Play Mode (Playing) | **Asynchronous**. Cleans up uniformly at the end of the current frame, safe and does not invalidate references. | | `DestroyImmediate` | Edit Mode (Edit Mode) | **Synchronous**. Immediately removes the object from memory. **Mandatory** in non-playing Editor state; otherwise, Unity will throw errors for uncleaned objects. |
+#### Destroy vs DestroyImmediate 
+| Function | Use Case | Behavior | 
+|----------|----------|----------| 
+| `Destroy` | Play Mode (Playing) | **Asynchronous**. Cleans up uniformly at the end of the current frame, safe and does not invalidate references. | 
+| `DestroyImmediate` | Edit Mode (Edit Mode) | **Synchronous**. Immediately removes the object from memory. **Mandatory** in non-playing Editor state; otherwise, Unity will throw errors for uncleaned objects. |
 
-
+#### **Example Script**:
+```csharp
+public ShaderVariantCollection myCollection;
+void Start() {
+    if (!myCollection.isWarmedUp) {
+        myCollection.WarmUp(); // 运行时提前编译，防止切换时卡顿
+    }
+}
+```
 
 
 
@@ -39,6 +51,6 @@ This is the #1 cause of the "Works in Editor, Crashes on Mobile" issue.
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExMTc5Nzc4MTEsMTE5ODU5ODY3NCwyMT
-E3MjEwMzAwXX0=
+eyJoaXN0b3J5IjpbMTg5MjI1MzAzNSwxMTk4NTk4Njc0LDIxMT
+cyMTAzMDBdfQ==
 -->
