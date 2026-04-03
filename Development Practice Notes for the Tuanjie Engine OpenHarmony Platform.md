@@ -64,6 +64,8 @@ It is an **editor-only message** and is excluded from builds. If logic (e.g., ca
 Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations.
 
 
+![输入图片说明](/imgs/2026-04-03/pq5uwkBapfIHzFpq.png)
+
 1. 使用脚本在运行时切换shader时应注意最终编译打包成应用的时候引擎可能会优化掉在编译时未使用到的shader/ shader variant
 解决方案：1. 显示设置某些shader不被优化掉 2 . 关闭引擎的stripping
 2. 需要注意引擎在编辑器内运行时和在打包应用内运行时的区别
@@ -74,6 +76,6 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU5MTg1MjcyMiwxMTk4NTk4Njc0LDIxMT
-cyMTAzMDBdfQ==
+eyJoaXN0b3J5IjpbNjE2MDE0MTM4LDExOTg1OTg2NzQsMjExNz
+IxMDMwMF19
 -->
