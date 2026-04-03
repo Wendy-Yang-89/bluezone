@@ -68,7 +68,7 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 
 #### Reference (SharedMaterial) 
 - Behavior: Points directly to the asset files on disk. 
-- Risk: If you modify `renderer.sharedMaterial.color` in a script, it **permanently alters your project files**! The changes will persist even after exiting Play Mode. 
+- Risk: If you modify `renderer.sharedMaterial.color` in a script, it **permanently alters your project files**! The changes will persist even after exiting `Play Mode`. 
 
 #### Instantiation (Material) 
 - Behavior: When accessing `renderer.material` (without `shared`), Unity creates a new copy of the material in memory. 
@@ -84,6 +84,6 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEwODY3NTI5NCwxMTk4NTk4Njc0LDIxMT
+eyJoaXN0b3J5IjpbMjA0NTQzMzM4MCwxMTk4NTk4Njc0LDIxMT
 cyMTAzMDBdfQ==
 -->
