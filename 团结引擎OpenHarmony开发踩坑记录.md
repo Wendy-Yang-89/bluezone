@@ -50,9 +50,7 @@
 
 在赋值天空盒后，显式地告诉 Unity 使用天空盒作为环境光来源，并触发探针刷新。
 
-C#
-
-```
+```csharp
 private void ApplySkyboxToScene()
 {
     if (skybox != null)
@@ -83,6 +81,6 @@ private void ApplySkyboxToScene()
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTI0NzExNDc3MywxMDYzMDMyMzM4LC04Nj
-Q4NzQxMTEsMjEwNjc1MDIyNSwtMTczODg0NjZdfQ==
+eyJoaXN0b3J5IjpbLTEwNDcxOTI1MzQsMTA2MzAzMjMzOCwtOD
+Y0ODc0MTExLDIxMDY3NTAyMjUsLTE3Mzg4NDY2XX0=
 -->
