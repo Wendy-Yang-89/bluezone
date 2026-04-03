@@ -8,17 +8,16 @@ The "Pink Screen" (Error Shader) on OpenHarmony devices occurs when the Vulkan d
     -   **Trade-off**: This includes **all** variants of the shader, which can significantly bloat the build size if not used sparingly.
 -   **Shader Variant Collections (SVC) - Professional Workflow**:
     -   **Auto-Capture**: Run the game in the Editor, go through all core features, then go to `Edit > Project Settings > Graphics > Shader Loading` and click **`Save to asset`**.
-    -   **Preloading**: Add the SVC asset to the `Preloaded Shaders` list in `Graphics Settings`.
+    -   **Preloading**: Add the SVC asset to the `Preloaded Shaders` list in `Edit > Project Settings > Graphics > Shader Loading`.
     -   **Warmup Script**:
-
-```csharp
-public ShaderVariantCollection myCollection;
-void Start() {
-    if (!myCollection.isWarmedUp) {
-        myCollection.WarmUp(); // 运行时提前编译，防止切换时卡顿
-    }
-}
-```
+		```csharp
+		public ShaderVariantCollection myCollection;
+		void Start() {
+		    if (!myCollection.isWarmedUp) {
+		        myCollection.WarmUp(); // 运行时提前编译，防止切换时卡顿
+		    }
+		}
+		```
 
 
 
@@ -36,5 +35,5 @@ void Start() {
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2MjEwNjUzMTIsMjExNzIxMDMwMF19
+eyJoaXN0b3J5IjpbMTE5ODU5ODY3NCwyMTE3MjEwMzAwXX0=
 -->
