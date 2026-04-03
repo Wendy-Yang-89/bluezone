@@ -1,28 +1,24 @@
 # Development Practice Notes for the Unity Engine OpenHarmony Platform
 
-### 1. Shader 变体剥离与丢失 (Stripping & Variant Loss)
+### 1. Shader Stripping & Variant Loss
+The "Pink Screen" (Error Shader) on OpenHarmony devices occurs when the Vulkan driver fails to find the corresponding pre-compiled shader binary variant.
+-   **Always Included Shaders (Panel)**:
+    -   **Path**: `Edit > Project Settings > Graphics > Always Included Shaders`.
+    -   **Action**: Manually add Shaders that are loaded via script (e.g., `Shader.Find`) and lack static material references in any scene.
+    -   **Trade-off**: This includes **all** variants of the shader, which can significantly bloat the build size if not used sparingly.
+-   **Shader Variant Collections (SVC) - Professional Workflow**:
+    -   **Auto-Capture**: Run the game in the Editor, go through all core features, then go to `Edit > Project Settings > Graphics > Shader Loading` and click **`Save to asset`**.
+    -   **Preloading**: Add the SVC asset to the `Preloaded Shaders` list in `Graphics Settings`.
+    -   **Warmup Script**:
 
-在移动端 `Vulkan` 模式下，Shader 变体（Variant）的丢失会导致渲染错误或“直接回退到默认 *Lit*”。
-
--   **面板操作：显式包含 Shader**
-    
-    -   路径：`Edit > Project Settings > Graphics > Always Included Shaders`。
-        
-    -   **操作**：将脚本中通过 `Shader.Find` 调用的所有 Shader（如 `Skybox/Procedural`）手动拖入列表。
-        
--   **进阶工具：Shader Variant Collection (SVC)**
-    
-    -   **作用**：精确记录 `multi_compile` 或 `shader_feature` 定义的组合。
-        
-    -   **脚本预热示例**：
-        
--   **注意**：不要为了省事彻底关闭 Stripping（在 `Graphics Settings` 中设置 `Shader Precision Model` 为 `Full`），这会导致鸿蒙 App 的包体大小和加载内存激增。
-
-
-
-
-
-
+```csharp
+public ShaderVariantCollection myCollection;
+void Start() {
+    if (!myCollection.isWarmedUp) {
+        myCollection.WarmUp(); // 运行时提前编译，防止切换时卡顿
+    }
+}
+```
 
 
 
@@ -40,5 +36,5 @@
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjExNzIxMDMwMF19
+eyJoaXN0b3J5IjpbLTE2MjEwNjUzMTIsMjExNzIxMDMwMF19
 -->
