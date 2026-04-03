@@ -75,12 +75,13 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 - Risk: **Memory leak**. A new copy is generated on each access. If you do not manually `Destroy` it in `OnDestroy`, video memory will gradually be exhausted.
 
 ### 4 Quality Settings and Platform 
+
 Differences For inconsistent rendering performance on HarmonyOS (OHOS), always check these three areas: 
 - **URP Asset Override**: In `Edit > Project Settings > Quality Settings` , each level (`Performat`/`Balanced`/`High Fidelity`) can assign a different `URP Asset`. Verify that your HarmonyOS platform level uses the correct Asset. 
 - **Shadow Distance**: The default shadow distance on mobile is usually very short (e.g., 20-50). In large scenes, distant areas will appear dark, which is often mistaken for broken lighting. 
 - **Color Space**: Ensure both HarmonyOS and PC platforms use **Linear** color space. If one uses Gamma and the other Linear, screen brightness will differ significantly.
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEyODg2NTQzMzksLTY2OTI4NTI5MywxNz
-gwMDA4NzcwLDIwNDU0MzMzODAsMTE5ODU5ODY3NCwyMTE3MjEw
-MzAwXX0=
+eyJoaXN0b3J5IjpbNzM0MzExMjExLC02NjkyODUyOTMsMTc4MD
+AwODc3MCwyMDQ1NDMzMzgwLDExOTg1OTg2NzQsMjExNzIxMDMw
+MF19
 -->
