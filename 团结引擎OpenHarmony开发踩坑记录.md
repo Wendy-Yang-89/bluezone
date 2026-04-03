@@ -23,8 +23,7 @@
 	   [**Reproduction**]
 			1. 点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
 			2. 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
-			3. 第二次 点击 `Create & Apply` 之后加载
-	上述代码有什么问题会导致 在第一次成功load apply skybox之后remove skybox 第二次重新load apply skybox会导致 场景中加载出来的模型渲染为全黑色吗？
+			3. 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
 
 ## Gemini said
 
@@ -135,6 +134,6 @@ private void UpdateSkyboxMaterial()
 
 **你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE0NDA4ODgwNjQsLTg2NDg3NDExMSwyMT
+eyJoaXN0b3J5IjpbLTEyMzU3MDM1MjQsLTg2NDg3NDExMSwyMT
 A2NzUwMjI1LC0xNzM4ODQ2Nl19
 -->
