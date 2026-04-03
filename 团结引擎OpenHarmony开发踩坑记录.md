@@ -6,13 +6,14 @@
 		- 有对勾说明该平台支持对应渲染质量等级
 		- 绿色对勾对应该平台默认使用的渲染质量等级
 	- 在资源浏览器 `Project > Assets > Settings` 下面找到对应的URP资产和Renderer资产
-	- 
-	| 质量级别 | URP 资产文件 | Renderer 渲染器资产文件 |
-	|---------|-------------|------------------------| 
-	| Perfomant | URP-Perfomant.asset | URP-Perfomant-Renderer.asset | 
-	| Balanced | URP-Balanced.asset | URP-Balanced-Renderer.asset | 
-	| High Fidelity | URP-HighFidelity.asset | URP-HighFidelity-Renderer.asset |
+
+		| 质量级别 | URP 资产文件 | Renderer 渲染器资产文件 |
+		|---------|-------------|------------------------| 
+		| `Perfomant` | URP-Perfomant.asset | URP-Perfomant-Renderer.asset | 
+		| `Balanced` | URP-Balanced.asset | URP-Balanced-Renderer.asset | 
+		| `High Fidelity` | URP-HighFidelity.asset | URP-HighFidelity-Renderer.asset |
+		
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNTk2OTkyMDg1LDIxMDY3NTAyMjUsLTE3Mz
-g4NDY2XX0=
+eyJoaXN0b3J5IjpbLTI5NTY3MjIyNiwyMTA2NzUwMjI1LC0xNz
+M4ODQ2Nl19
 -->
