@@ -27,8 +27,9 @@
 	- [**Cause**]
 		- 虽然调用了 `DynamicGI.UpdateEnvironment()` 但是没有触发全局光照的更新
 	- [**Solution**]
-		- 在修改天空盒材质的时候先修改
-		- 
+		- 在修改天空盒材质的时候先修改 `ambientMode` 为纯色，再改回天空盒
+		- 本质上是手动触发了 Unity 内部渲染状态的 **Dirty Flag**，
+
 ```csharp
 private void ApplySkyboxToScene()
 {
@@ -60,6 +61,6 @@ private void ApplySkyboxToScene()
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTg0MzkyNDU3OSwxMDYzMDMyMzM4LC04Nj
+eyJoaXN0b3J5IjpbMTI4NjQzNTMxNywxMDYzMDMyMzM4LC04Nj
 Q4NzQxMTEsMjEwNjc1MDIyNSwtMTczODg0NjZdfQ==
 -->
