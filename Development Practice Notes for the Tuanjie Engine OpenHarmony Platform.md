@@ -57,7 +57,7 @@ OnValidate() is triggered when values in the Inspector are modified or the scrip
 - SendMessage 
 - Any operations that may disrupt the **Undo** system 
 - Do not call `EditorUtility.SetDirty` inside OnValidate() or modify properties that may trigger re-serialization, as this will cause an infinite loop.
-- 
+
 ##### 2. Packaging Notes 
 It is an **editor-only message** and is excluded from builds. If logic (e.g., calculating critical values) is placed inside, the value may remain at the default **0** after build. 
 
@@ -84,6 +84,6 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjA0NTQzMzM4MCwxMTk4NTk4Njc0LDIxMT
-cyMTAzMDBdfQ==
+eyJoaXN0b3J5IjpbMjA2NTY5NDI4OSwyMDQ1NDMzMzgwLDExOT
+g1OTg2NzQsMjExNzIxMDMwMF19
 -->
