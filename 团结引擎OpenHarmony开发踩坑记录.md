@@ -5,7 +5,7 @@
 	- 在 `Edit > Project Settings > Quality` 中确认打包目标平台的渲染质量等级
 		- 有对勾说明该平台支持对应渲染质量等级
 		- 绿色对勾对应该平台默认使用的渲染质量等级
-	- 在 
+	- 在资源浏览器 `Project > Assets > Settings` 下面找到对应的URP资产和Renderer资产
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbODIyNDk4MjQwLC0xNzM4ODQ2Nl19
+eyJoaXN0b3J5IjpbNjY0MzE3MTQ2LC0xNzM4ODQ2Nl19
 -->
