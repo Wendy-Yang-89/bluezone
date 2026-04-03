@@ -8,7 +8,7 @@
 	- 在资源浏览器 `Project > Assets > Settings` 下面找到对应的URP资产和Renderer资产
 		- `Perfomant`: 
 		- ``: 
-		- `High Fidel`
+		- `High Fidelity`
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE0MTIzNzg1MywtMTczODg0NjZdfQ==
+eyJoaXN0b3J5IjpbLTE0MDU1OTEzNjEsLTE3Mzg4NDY2XX0=
 -->
