@@ -19,7 +19,9 @@
 	- **优先级 3（最低）**：内置渲染管线 Built-in Render Pipeline 当以上两项均未设置时，Unity 自动使用内置管线。 
 	- **最终生效结果**：`GraphicsSettings.currentRenderPipeline` 由 Unity 自动按上述优先级计算，返回当前实际使用的渲染管线。
 4. 全局光照同步问题
-	> [**BUG**] jia'z上述代码有什么问题会导致 在第一次成功load apply skybox之后remove skybox 第二次重新load apply skybox会导致 场景中加载出来的模型渲染为全黑色吗？
+	> [**BUG**] 在脚本中动态加载或移除天空盒的代码 `SkyboxManager.cs` 中存在光照信息丢失问题。
+	> [**Reprodu**]
+	上述代码有什么问题会导致 在第一次成功load apply skybox之后remove skybox 第二次重新load apply skybox会导致 场景中加载出来的模型渲染为全黑色吗？
 
 ## Gemini said
 
@@ -130,6 +132,6 @@ private void UpdateSkyboxMaterial()
 
 **你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTU2MzYzNDI2NiwtODY0ODc0MTExLDIxMD
-Y3NTAyMjUsLTE3Mzg4NDY2XX0=
+eyJoaXN0b3J5IjpbMjIwMDQ5ODA4LC04NjQ4NzQxMTEsMjEwNj
+c1MDIyNSwtMTczODg0NjZdfQ==
 -->
