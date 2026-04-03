@@ -76,8 +76,11 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 
 
 ### 4 Quality Settings and Platform 
-Differences For inconsistent rendering performance on HarmonyOS (OHOS), always check these three areas: - **URP Asset Override**: In `Quality Settings`, each level (Low/Med/High) can assign a different `URP Asset`. Verify that your HarmonyOS platform level uses the correct Asset. - **Shadow Distance**: The default shadow distance on mobile is usually very short (e.g., 20-50). In large scenes, distant areas will appear dark, which is often mistaken for broken lighting. - **Color Space**: Ensure both HarmonyOS and PC platforms use **Linear** color space. If one uses Gamma and the other Linear, screen brightness will differ significantly.
+Differences For inconsistent rendering performance on HarmonyOS (OHOS), always check these three areas: 
+- **URP Asset Override**: In `Edit > ProkjeQuality Settings` , each level (Low/Med/High) can assign a different `URP Asset`. Verify that your HarmonyOS platform level uses the correct Asset. 
+- **Shadow Distance**: The default shadow distance on mobile is usually very short (e.g., 20-50). In large scenes, distant areas will appear dark, which is often mistaken for broken lighting. 
+- **Color Space**: Ensure both HarmonyOS and PC platforms use **Linear** color space. If one uses Gamma and the other Linear, screen brightness will differ significantly.
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNDAxNjg0MjU3LDE3ODAwMDg3NzAsMjA0NT
-QzMzM4MCwxMTk4NTk4Njc0LDIxMTcyMTAzMDBdfQ==
+eyJoaXN0b3J5IjpbLTIyMzUwNTE2MiwxNzgwMDA4NzcwLDIwND
+U0MzMzODAsMTE5ODU5ODY3NCwyMTE3MjEwMzAwXX0=
 -->
