@@ -1,6 +1,6 @@
 # 团结引擎OpenHarmony开发踩坑记录
 
-1. pcdu
+1. 打包
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMzk2NzcyMTg4XX0=
+eyJoaXN0b3J5IjpbLTE3Mzg4NDY2XX0=
 -->
