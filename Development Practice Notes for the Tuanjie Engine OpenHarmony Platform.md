@@ -67,7 +67,12 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 ### 3. Reference vs. Instantiation 
 This is a critical question: **Who modified my assets?** 
 
-#### Reference (SharedMaterial) - Behavior: Points directly to the asset files on disk. - Risk: If you modify `renderer.sharedMaterial.color` in a script, it **permanently alters your project files**! The changes will persist even after exiting Play Mode. ### Instantiation (Material) - Behavior: When accessing `renderer.material` (without `shared`), Unity creates a new copy of the material in memory. - Risk: **Memory leak**. A new copy is generated on each access. If you do not manually `Destroy` it in `OnDestroy`, video memory will gradually be exhausted.
+#### Reference (SharedMaterial) 
+- Behavior: Points directly to the asset files on disk. 
+- Risk: If you modify `renderer.sharedMaterial.color` in a script, it **permanently alters your project files**! The changes will persist even after exiting Play Mode. 
+
+#### Instantiation (Material) 
+- Behavior: When accessing `renderer.material` (without `shared`), Unity creates a new copy of the material in memory. - Risk: **Memory leak**. A new copy is generated on each access. If you do not manually `Destroy` it in `OnDestroy`, video memory will gradually be exhausted.
 
 1. 使用脚本在运行时切换shader时应注意最终编译打包成应用的时候引擎可能会优化掉在编译时未使用到的shader/ shader variant
 解决方案：1. 显示设置某些shader不被优化掉 2 . 关闭引擎的stripping
@@ -79,6 +84,6 @@ This is a critical question: **Who modified my assets?**
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjA1ODEyODM3MCwxMTk4NTk4Njc0LDIxMT
+eyJoaXN0b3J5IjpbMTI0MTc0NTc4MSwxMTk4NTk4Njc0LDIxMT
 cyMTAzMDBdfQ==
 -->
