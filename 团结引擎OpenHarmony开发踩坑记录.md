@@ -6,9 +6,9 @@
 		- 有对勾说明该平台支持对应渲染质量等级
 		- 绿色对勾对应该平台默认使用的渲染质量等级
 	- 在资源浏览器 `Project > Assets > Settings` 下面找到对应的URP资产和Renderer资产
-		- `Perfomant`: 
-		- `Balanced`: 
+		- `Perfomant`: URP-Perfomant.asset 
+		- `Balanced`: URP-Balanced.asset 
 		- `High Fidelity`
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTYxNTU2MTg3OSwtMTczODg0NjZdfQ==
+eyJoaXN0b3J5IjpbMTQxNDI0MTA3NSwtMTczODg0NjZdfQ==
 -->
