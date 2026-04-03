@@ -25,8 +25,10 @@
 		- Step2: 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
 		- Step3: 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
 	- [**Cause**]
+		- 虽然调用了 `DynamicGI.UpdateEnvironment()` 但是没有触发全局光照的更新
+	- [**Solution**]
+		- 在修改天空盒材质的时候先修改
 		- 
-
 ```csharp
 private void ApplySkyboxToScene()
 {
@@ -58,6 +60,6 @@ private void ApplySkyboxToScene()
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEwMjQ2MTQ0MjMsMTA2MzAzMjMzOCwtOD
-Y0ODc0MTExLDIxMDY3NTAyMjUsLTE3Mzg4NDY2XX0=
+eyJoaXN0b3J5IjpbLTg0MzkyNDU3OSwxMDYzMDMyMzM4LC04Nj
+Q4NzQxMTEsMjEwNjc1MDIyNSwtMTczODg0NjZdfQ==
 -->
