@@ -50,7 +50,7 @@ private void OnDestroy()
 #### OnValidate()
 OnValidate() is triggered when values in the Inspector are modified or the script is loaded. 
 
-#### 1. Prohibited Operations 
+##### 1. Prohibited Operations 
 - Instantiate 
 - Destroy 
 - AddComponent 
@@ -74,6 +74,6 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIwOTA1NDk2MzcsMTE5ODU5ODY3NCwyMT
-E3MjEwMzAwXX0=
+eyJoaXN0b3J5IjpbNzQ3OTg5MTk2LDExOTg1OTg2NzQsMjExNz
+IxMDMwMF19
 -->
