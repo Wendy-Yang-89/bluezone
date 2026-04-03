@@ -64,6 +64,8 @@ It is an **editor-only message** and is excluded from builds. If logic (e.g., ca
 ##### Safe Implementation 
 Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations or this will trigger issues when building and packing as the **UnityEditor** namespace wouldn't be compiled and packed in the final application.
 
+Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations. Otherwise, errors will occur during build and packing, since the **UnityEditor** namespace is not included in the final build.
+
 ### 3. Reference vs. Instantiation 
 
 #### Reference (SharedMaterial) 
@@ -81,7 +83,7 @@ Differences For inconsistent rendering performance on HarmonyOS (OHOS), always c
 - **Shadow Distance**: The default shadow distance on mobile is usually very short (e.g., 20-50). In large scenes, distant areas will appear dark, which is often mistaken for broken lighting. 
 - **Color Space**: Ensure both HarmonyOS and PC platforms use **Linear** color space. If one uses Gamma and the other Linear, screen brightness will differ significantly.
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTcwNjIyNDE2MSw3MzQzMTEyMTEsLTY2OT
+eyJoaXN0b3J5IjpbLTMyMjM0MjU1Myw3MzQzMTEyMTEsLTY2OT
 I4NTI5MywxNzgwMDA4NzcwLDIwNDU0MzMzODAsMTE5ODU5ODY3
 NCwyMTE3MjEwMzAwXX0=
 -->
