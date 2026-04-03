@@ -29,8 +29,6 @@
 这是一个非常经典且让人头疼的 **环境光照同步（GI Sync）** 问题。
 模型变黑是因为你的代码在“移除”和“重新加载”的过程中，弄丢了场景的**环境光数据（Ambient Lighting）**。
 
-### 问题的根源
-
 在 Unity/团结引擎中，物体的亮度由 **直接光** 和 **环境光（Indirect/Ambient Light）** 组成。当你执行 `RemoveSkybox` 时：
 
 1.  你把 `RenderSettings.skybox` 设为了 `null`。
@@ -134,6 +132,6 @@ private void UpdateSkyboxMaterial()
 
 **你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTU0NTQyNjg5OCwtODY0ODc0MTExLDIxMD
+eyJoaXN0b3J5IjpbMTA2MzAzMjMzOCwtODY0ODc0MTExLDIxMD
 Y3NTAyMjUsLTE3Mzg4NDY2XX0=
 -->
