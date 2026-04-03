@@ -24,31 +24,8 @@
 		- Step1: 点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
 		- Step2: 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
 		- Step3: 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
-	- 
-
-这是一个非常经典且让人头疼的 **环境光照同步（GI Sync）** 问题。
-模型变黑是因为你的代码在“移除”和“重新加载”的过程中，弄丢了场景的**环境光数据（Ambient Lighting）**。
-
-在 Unity/团结引擎中，物体的亮度由 **直接光** 和 **环境光（Indirect/Ambient Light）** 组成。当你执行 `RemoveSkybox` 时：
-
-1.  你把 `RenderSettings.skybox` 设为了 `null`。
-    
-2.  你调用了 `DynamicGI.UpdateEnvironment()`。此时，Unity 会重新计算环境光。因为天空盒没了，计算出的环境光系数（Spherical Harmonics）全是 **0（黑色）**。
-    
-3.  **关键点**：当你第二次 `Apply` 时，虽然你把新材质给了 `RenderSettings.skybox`，但由于 **URP 渲染管线或烘焙系统的缓存机制**，环境光探测器（Ambient Probe）可能没有立即被告知“现在又有光了”。
-    
-
-结果就是：天空盒虽然显示出来了，但场景里的模型依然在使用上一刻计算出的“全黑”环境光数据，所以模型看起来是黑色的。
-
-----------
-
-### 解决方案：三步修复法
-
-你需要修改 `ApplySkyboxToScene` 函数，强制 Unity 重新同步所有环境数据。
-
-#### 1. 强制重置环境光模式
-
-在赋值天空盒后，显式地告诉 Unity 使用天空盒作为环境光来源，并触发探针刷新。
+	- [**Cause**]
+		- 
 
 ```csharp
 private void ApplySkyboxToScene()
@@ -81,6 +58,6 @@ private void ApplySkyboxToScene()
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjAwMTE4NDQ0LDEwNjMwMzIzMzgsLTg2ND
-g3NDExMSwyMTA2NzUwMjI1LC0xNzM4ODQ2Nl19
+eyJoaXN0b3J5IjpbLTEwMjQ2MTQ0MjMsMTA2MzAzMjMzOCwtOD
+Y0ODc0MTExLDIxMDY3NTAyMjUsLTE3Mzg4NDY2XX0=
 -->
