@@ -21,9 +21,9 @@
  4. 全局光照同步问题
 	- [**BUG**] 在脚本中动态加载或移除天空盒的代码 `SkyboxManager.cs` 中存在光照信息丢失问题。
 	- [**Reproduction**]
-		- Step点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
-		- 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
-		- 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
+		- Step1: 点击 `Create & Apply` 在运行时动态创建天空盒材质并且应用到场景中
+		- Step2: 点击 `Remove Skybox` 在运行时销毁天空盒材质并且设置 `RenderSettings.skybox = null` 
+		- Step3: 第二次 点击 `Create & Apply` 之后加载出来的模型确实光照信息，渲染结果为全黑色
 	- 
 
 这是一个非常经典且让人头疼的 **环境光照同步（GI Sync）** 问题。
@@ -134,6 +134,6 @@ private void UpdateSkyboxMaterial()
 
 **你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2OTMxNjM4NjAsLTg2NDg3NDExMSwyMT
-A2NzUwMjI1LC0xNzM4ODQ2Nl19
+eyJoaXN0b3J5IjpbLTU0NTQyNjg5OCwtODY0ODc0MTExLDIxMD
+Y3NTAyMjUsLTE3Mzg4NDY2XX0=
 -->
