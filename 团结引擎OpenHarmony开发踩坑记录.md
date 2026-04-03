@@ -58,7 +58,7 @@ private void ApplySkyboxToScene()
         // 1. 设置天空盒材质
         RenderSettings.skybox = skybox;
 
-        // 2. 先强制指定环境光来源为天空盒 (这一步至关重要)
+        // 2. 先强制指定环境光来源为纯色，然后再重新设置为天空盒
         RenderSettings.ambientMode = AmbientMode.Flat;
         RenderSettings.ambientMode = AmbientMode.Skybox;
 
@@ -81,6 +81,6 @@ private void ApplySkyboxToScene()
 }
 ```
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEwNDcxOTI1MzQsMTA2MzAzMjMzOCwtOD
-Y0ODc0MTExLDIxMDY3NTAyMjUsLTE3Mzg4NDY2XX0=
+eyJoaXN0b3J5IjpbMjAwMTE4NDQ0LDEwNjMwMzIzMzgsLTg2ND
+g3NDExMSwyMTA2NzUwMjI1LC0xNzM4ODQ2Nl19
 -->
