@@ -75,31 +75,18 @@ On OpenHarmony (Vulkan), the shader binary (SPIR-V) often requires a final link/
 -   **The Hitch**: Without pre-warming, the main thread will hang for hundreds of milliseconds while the GPU compiles the shader during a heavy action or skybox swap.
 -   **Result**: The player experiences a noticeable frame drop or "hitch."
 
-
 ### 3. Workflow: Efficient SVC Collection
-
 #### **Practical: Auto-Capture Process (The Pro Method)**
-
 1.  **Clear Cache**: Run the game in the Unity Editor.
-    
-2.  **Playthrough**: Play through the game manually, ensuring all effects, skybox swaps, and lighting conditions are triggered.
-    
-3.  **Capture**:
-    
-    -   Go to `Project Settings > Graphics`.
-        
+2.  **Playthrough**: Play through the game manually, ensuring all effects, skybox swaps, and lighting conditions are triggered.  
+3.  **Capture**: 
+    -   Go to `Edit > Project Settings > Graphics`.
     -   Locate `Shader Loading` at the bottom.
-        
-    -   Click **"Save to asset"**. This exports all variants currently resident in memory to an SVC file.
-        
+    -   Click `Save to asset`. This exports all variants currently resident in memory to an SVC file.
 
 #### **Code: The WarmUp Logic**
-
 It is recommended to run this during a loading screen. Note that `WarmUp` is a synchronous, heavy operation.
-
-C#
-
-```
+```csharp
 using UnityEngine;
 
 public class ShaderPreloader : MonoBehaviour
@@ -118,7 +105,14 @@ public class ShaderPreloader : MonoBehaviour
     }
 }
 ```
+
+#### Expert "Rules of Thumb"
+| Dimension | Insight | 
+|-----------|---------| 
+| **Memory vs. Startup** | Bigger is not always better. A massive SVC consumes VRAM and can significantly slow down app startup. Split SVCs by module (e.g., UI, Environment, VFX). | 
+| **Keyword Scopes** | `Shader.EnableKeyword` (Global) vs. `material.EnableKeyword` (Local). SVC's auto-capture is sometimes inconsistent with local keywords; manual verification is advised. | 
+| **Vulkan Specifics** | On Vulkan, even with SVC, if Pipeline State (like Blend Mode or Z-Test) changes, a recompile might still be triggered. |
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTIwMzIxNDM3MjgsLTE4ODYzNDM5MDIsLT
+eyJoaXN0b3J5IjpbLTExNDAyNjI5MTAsLTE4ODYzNDM5MDIsLT
 EwOTEzMDAxMTZdfQ==
 -->
