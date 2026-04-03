@@ -74,16 +74,10 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 - Behavior: When accessing `renderer.material` (without `shared`), Unity creates a new copy of the material in memory. 
 - Risk: **Memory leak**. A new copy is generated on each access. If you do not manually `Destroy` it in `OnDestroy`, video memory will gradually be exhausted.
 
-### 5. Quality Settings 与平台差异
 
-在鸿蒙平台上，渲染表现不一致通常检查这三个地方：
-
--   **URP Asset 覆盖**：在 `Quality Settings` 中，每个等级（Low/Med/High）可以指定不同的 `URP Asset`。检查你的 OH 平台等级是否关联了正确的 Asset。
-    
--   **Shadow Distance**：移动端默认阴影距离通常很短（如 20-50），如果你的场景很大，远处看就是黑的，这常被误认为光照坏了。
-    
--   **Color Space**：确保 OH 平台和 PC 平台统一使用 **Linear（线性色空间）**。如果一个是 Gamma 一个是 Linear，画面亮度会差出好几倍。
+### 4 Quality Settings and Platform 
+Differences For inconsistent rendering performance on HarmonyOS (OHOS), always check these three areas: - **URP Asset Override**: In `Quality Settings`, each level (Low/Med/High) can assign a different `URP Asset`. Verify that your HarmonyOS platform level uses the correct Asset. - **Shadow Distance**: The default shadow distance on mobile is usually very short (e.g., 20-50). In large scenes, distant areas will appear dark, which is often mistaken for broken lighting. - **Color Space**: Ensure both HarmonyOS and PC platforms use **Linear** color space. If one uses Gamma and the other Linear, screen brightness will differ significantly.
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTc4MDAwODc3MCwyMDQ1NDMzMzgwLDExOT
-g1OTg2NzQsMjExNzIxMDMwMF19
+eyJoaXN0b3J5IjpbNDAxNjg0MjU3LDE3ODAwMDg3NzAsMjA0NT
+QzMzM4MCwxMTk4NTk4Njc0LDIxMTcyMTAzMDBdfQ==
 -->
