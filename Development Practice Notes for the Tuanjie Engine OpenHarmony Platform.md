@@ -50,18 +50,18 @@ private void OnDestroy()
 #### OnValidate()
 OnValidate() is triggered when values in the Inspector are modified or the script is loaded. 
 
-##### 1. Prohibited Operations 
+##### Prohibited Operations 
 - Instantiate 
 - Destroy 
 - AddComponent 
 - SendMessage 
 - Any operations that may disrupt the **Undo** system 
-- Do not call `EditorUtility.SetDirty` inside OnValidate() or modify properties that may trigger re-serialization, as this will cause an infinite loop.
+- **Do not** call `EditorUtility.SetDirty` inside OnValidate() or modify properties that may trigger re-serialization, as this will cause an infinite loop.
 
-##### 2. Packaging Notes 
+##### Packaging Notes 
 It is an **editor-only message** and is excluded from builds. If logic (e.g., calculating critical values) is placed inside, the value may remain at the default **0** after build. 
 
-##### 3. Safe Implementation 
+##### Safe Implementation 
 Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations.
 
 ### 3. Reference vs. Instantiation 
@@ -74,16 +74,16 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 - Behavior: When accessing `renderer.material` (without `shared`), Unity creates a new copy of the material in memory. 
 - Risk: **Memory leak**. A new copy is generated on each access. If you do not manually `Destroy` it in `OnDestroy`, video memory will gradually be exhausted.
 
-1. 使用脚本在运行时切换shader时应注意最终编译打包成应用的时候引擎可能会优化掉在编译时未使用到的shader/ shader variant
-解决方案：1. 显示设置某些shader不被优化掉 2 . 关闭引擎的stripping
-2. 需要注意引擎在编辑器内运行时和在打包应用内运行时的区别
-	- 什么时候使用Destroy，什么时候使用DestroyImmediate
-	- OnValidate 的作用，打包时要注意什么，什么函数不能再OnValidate中执行
-3. 编译调试时经常遇到的问题
-4. 什么时候使用引用 什么时候使用实例化
-5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
-6. 
+### 5. Quality Settings 与平台差异
+
+在鸿蒙平台上，渲染表现不一致通常检查这三个地方：
+
+-   **URP Asset 覆盖**：在 `Quality Settings` 中，每个等级（Low/Med/High）可以指定不同的 `URP Asset`。检查你的 OH 平台等级是否关联了正确的 Asset。
+    
+-   **Shadow Distance**：移动端默认阴影距离通常很短（如 20-50），如果你的场景很大，远处看就是黑的，这常被误认为光照坏了。
+    
+-   **Color Space**：确保 OH 平台和 PC 平台统一使用 **Linear（线性色空间）**。如果一个是 Gamma 一个是 Linear，画面亮度会差出好几倍。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjA2NTY5NDI4OSwyMDQ1NDMzMzgwLDExOT
+eyJoaXN0b3J5IjpbMTc4MDAwODc3MCwyMDQ1NDMzMzgwLDExOT
 g1OTg2NzQsMjExNzIxMDMwMF19
 -->
