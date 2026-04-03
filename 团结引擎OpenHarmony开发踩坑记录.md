@@ -60,8 +60,9 @@ private void ApplySkyboxToScene()
         // 1. 设置天空盒材质
         RenderSettings.skybox = skybox;
 
-        // 2. 强制指定环境光来源为天空盒 (这一步至关重要)
-        RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Skybox;
+        // 2. 先强制指定环境光来源为天空盒 (这一步至关重要)
+        RenderSettings.ambientMode = AmbientMode.Flat;
+        RenderSettings.ambientMode = AmbientMode.Skybox;
 
         // 3. 强制触发环境光和反射探针的全面更新
         // 在某些 Unity 版本中，仅仅 UpdateEnvironment 是不够的
@@ -81,57 +82,7 @@ private void ApplySkyboxToScene()
     }
 }
 ```
-
-#### 2. 解决材质被“误杀”的问题
-
-在你的 `OnDestroy` 和 `RemoveSkybox` 里，你使用了 `DestroyImmediate(skybox)`。
-
--   如果你在第二次 Load 时，由于某种逻辑逻辑判定（比如 `if (skybox == null)`），没有正确地重新 `new Material`，那么你其实是在给 `RenderSettings.skybox` 赋值一个**已经销毁的 Null 引用**。
-    
--   建议在 `UpdateSkyboxMaterial` 的开头加入更严谨的检查：
-    
-
-C#
-
-```
-private void UpdateSkyboxMaterial()
-{
-    // ... 之前的 Shader 判断逻辑 ...
-
-    // 确保材质一定存在且有效
-    if (skybox == null) 
-    {
-        skybox = new Material(skyboxShader);
-        skybox.hideFlags = HideFlags.HideAndDontSave; // 防止被误删
-    }
-    else
-    {
-        skybox.shader = skyboxShader;
-    }
-    
-    // ... 后续的属性同步 ...
-}
-```
-
-#### 3. 检查 URP Asset 的环境设置
-
-如果模型还是黑色，请检查你的 **URP Asset** 设置：
-
--   **Lighting > Environment**：确保没有勾选一些奇怪的优化项导致环境光不再自动更新。
-    
--   **Vulkan 平台特殊性**：你在 OpenHarmony 上使用 Vulkan，Vulkan 的常量缓冲区更新可能存在延迟。如果 `DynamicGI.UpdateEnvironment()` 没生效，可以尝试在 `Apply` 后延迟一帧再调用一次 `DynamicGI.UpdateEnvironment()`。
-    
-
-----------
-
-### 为什么第一次是好的？
-
-第一次运行脚本时，场景的 **Lighting Data Asset**（光照贴图数据）通常还带有上一个天空盒残留的有效环境光信息。而当你手动 `Remove` 后，你把这个“有效信息”彻底刷成了“纯黑”，所以第二次加载就必须靠代码强行“唤醒”光照系统。
-
-**小贴士**：如果你的模型使用了自定义 Shader，请确保 Shader 内部有 `_GLOSSY_ENV_REFLECTIONS` 宏或者正确处理了 `SH`（球面谐波）光照计算。否则，就算天空盒回来了，模型也可能因为拿不到环境光探针的数据而保持黑色。
-
-**你现在重新 `Apply` 之后，场景里的 Directional Light（方向光）是否还能正常照亮模型？**（如果方向光能亮但阴影处全黑，那百分之百是 Ambient Probe 环境光探针没刷新）。
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTA2MzAzMjMzOCwtODY0ODc0MTExLDIxMD
-Y3NTAyMjUsLTE3Mzg4NDY2XX0=
+eyJoaXN0b3J5IjpbMTI0NzExNDc3MywxMDYzMDMyMzM4LC04Nj
+Q4NzQxMTEsMjEwNjc1MDIyNSwtMTczODg0NjZdfQ==
 -->
