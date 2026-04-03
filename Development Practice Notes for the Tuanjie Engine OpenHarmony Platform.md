@@ -28,7 +28,7 @@ This is the #1 cause of the "Works in Editor, Crashes on Mobile" issue.
 | `Destroy()` | Play Mode (Playing) | **Asynchronous**. Cleans up uniformly at the end of the current frame, safe and does not invalidate references. | 
 | `DestroyImmediate()` | Edit Mode (Edit Mode) | **Synchronous**. Immediately removes the object from memory. **Mandatory** in non-playing Editor state; otherwise, Unity will throw errors for uncleaned objects. |
 
-#### **Example Script**:
+##### **Example Script**:
 ```csharp
 private void OnDestroy()
 	if (material!= null)
@@ -74,6 +74,6 @@ Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execu
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbNzQ3OTg5MTk2LDExOTg1OTg2NzQsMjExNz
-IxMDMwMF19
+eyJoaXN0b3J5IjpbLTUyMzcwNDA0NywxMTk4NTk4Njc0LDIxMT
+cyMTAzMDBdfQ==
 -->
