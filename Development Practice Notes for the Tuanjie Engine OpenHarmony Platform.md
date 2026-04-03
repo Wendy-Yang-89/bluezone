@@ -34,14 +34,14 @@ if (material!= null)
 {
     if (Application.isEditor && !Application.isPlaying)
     {
-        DestroyImmediate(skybox);
+        DestroyImmediate(material);
     }
     else
     {
-        Destroy(skybox);
+        Destroy(material);
     }
-    skybox = null;
-    Debug.Log("Skybox has been destroyed!");
+    material= null;
+    Debug.Log("material has been destroyed!");
 }
 ```
 
@@ -58,6 +58,6 @@ if (material!= null)
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTAwNTEwNjUzNSwxMTk4NTk4Njc0LDIxMT
+eyJoaXN0b3J5IjpbMTM5NTY5MTU5NywxMTk4NTk4Njc0LDIxMT
 cyMTAzMDBdfQ==
 -->
