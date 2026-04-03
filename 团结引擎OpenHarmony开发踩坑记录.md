@@ -13,8 +13,13 @@
 		| `Balanced` | URP-Balanced.asset | URP-Balanced-Renderer.asset | 
 		| `High Fidelity` | URP-HighFidelity.asset | URP-HighFidelity-Renderer.asset |
 3. 渲染管线优先级与覆盖规则
-	| 优先级 | 设置项 | API | 作用 | 最终生效规则 | | :--- | :--- | :--- | :--- | :--- | | **1（最高）** | Quality Settings 质量等级渲染管线 | `QualitySettings.renderPipeline` | 当前画质等级的**覆盖管线** | 不为空 → 优先使用此覆盖管线 | | **2** | Graphics Settings 默认渲染管线 | `GraphicsSettings.defaultRenderPipeline` | 全局默认管线 | 覆盖为空 → 使用此默认管线 | | **3（最低）** | 内置渲染管线 | - | 系统兜底 | 前两者均为空 → 自动使用 Built-in 管线 | | 最终获取 | 当前活动渲染管线 | `GraphicsSettings.currentRenderPipeline` | 直接返回**最终生效**的管线资产 | 自动按优先级返回结果，无需判断 |
+	| 优先级 | 设置项 | API | 作用 | 最终生效规则 | 
+	| :--- | :--- | :--- | :--- | :--- | 
+	| **1** | Quality Settings 质量等级渲染管线 | `QualitySettings.renderPipeline` | 当前画质等级的**覆盖管线** | 不为空 → 优先使用此覆盖管线 | 
+	| **2** | Graphics Settings 默认渲染管线 | `GraphicsSettings.defaultRenderPipeline` | 全局默认管线 | 覆盖为空 → 使用此默认管线 | 
+	| **3** | 内置渲染管线 | - | 系统兜底 | 前两者均为空 → 自动使用 Built-in 管线 | 
+	| 当前| 当前活动渲染管线 | `GraphicsSettings.currentRenderPipeline` | 直接返回**最终生效**的管线资产 | 自动按优先级返回结果，无需判断 |
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE2MTQyOTk3MzIsLTg2NDg3NDExMSwyMT
-A2NzUwMjI1LC0xNzM4ODQ2Nl19
+eyJoaXN0b3J5IjpbLTE4MTE5MzQ5MywtODY0ODc0MTExLDIxMD
+Y3NTAyMjUsLTE3Mzg4NDY2XX0=
 -->
