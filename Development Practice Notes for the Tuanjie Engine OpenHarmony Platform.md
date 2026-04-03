@@ -22,11 +22,11 @@ The "Pink Screen" (Error Shader) on OpenHarmony devices occurs when the Vulkan d
 ### 2. Editor vs. Runtime Behavior Differences 
 This is the #1 cause of the "Works in Editor, Crashes on Mobile" issue. 
 
-#### Destroy vs DestroyImmediate 
+#### Destroy() vs DestroyImmediate() 
 | Function | Use Case | Behavior | 
 |----------|----------|----------| 
-| `Destroy` | Play Mode (Playing) | **Asynchronous**. Cleans up uniformly at the end of the current frame, safe and does not invalidate references. | 
-| `DestroyImmediate` | Edit Mode (Edit Mode) | **Synchronous**. Immediately removes the object from memory. **Mandatory** in non-playing Editor state; otherwise, Unity will throw errors for uncleaned objects. |
+| `Destroy()` | Play Mode (Playing) | **Asynchronous**. Cleans up uniformly at the end of the current frame, safe and does not invalidate references. | 
+| `DestroyImmediate()` | Edit Mode (Edit Mode) | **Synchronous**. Immediately removes the object from memory. **Mandatory** in non-playing Editor state; otherwise, Unity will throw errors for uncleaned objects. |
 
 #### **Example Script**:
 ```csharp
@@ -48,7 +48,9 @@ private void OnDestroy()
 ```
 
 #### OnValidate()
-## OnValidate Usage Guidelines OnValidate is triggered when values in the Inspector are modified or the script is loaded. ### Prohibited Operations - Instantiate - Destroy - AddComponent - SendMessage - Any operations that may disrupt the Undo system ### Packaging Notes It is an **editor-only message** and is excluded from builds. If logic (e.g., calculating critical values) is placed inside, the value may remain at the default **0** after build. ### Safe Implementation Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations.
+OnValidate() is triggered when values in the Inspector are modified or the script is loaded. 
+
+#### Prohibited Operations - Instantiate - Destroy - AddComponent - SendMessage - Any operations that may disrupt the Undo system ### Packaging Notes It is an **editor-only message** and is excluded from builds. If logic (e.g., calculating critical values) is placed inside, the value may remain at the default **0** after build. ### Safe Implementation Wrap code with `#if UNITY_EDITOR` and use `EditorApplication.delayCall` to execute complex UI or resource operations.
 
 
 1. 使用脚本在运行时切换shader时应注意最终编译打包成应用的时候引擎可能会优化掉在编译时未使用到的shader/ shader variant
@@ -61,6 +63,6 @@ private void OnDestroy()
 5. 当打包引用中的渲染结果与编辑器内运行时或Windows平台应用不一致时应注意是否是不同平台上的quality settings有差异
 6. 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMTA4NzA1MzMyLDExOTg1OTg2NzQsMjExNz
+eyJoaXN0b3J5IjpbNjA0NzUyMzE5LDExOTg1OTg2NzQsMjExNz
 IxMDMwMF19
 -->
