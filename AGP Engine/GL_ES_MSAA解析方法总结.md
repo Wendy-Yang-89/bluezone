@@ -1,0 +1,368 @@
+# GL ES MSAA解析方法总结
+
+## 概述
+
+OpenGL ES中MSAA（Multisample Anti-Aliasing）解析有多种方法。本文档总结各种方法的原理、使用条件和优劣对比。
+
+## 方法1：隐式解析（推荐）
+
+### 扩展名称
+- `GL_EXT_multisampled_render_to_texture2`
+- `GL_OVR_multiview_multisampled_render_to_texture`
+
+### 原理
+直接将非MSAA纹理绑定为MSAA渲染目标，GPU在渲染过程中自动处理多采样和解析，无需显式调用解析命令。
+
+### 核心函数
+
+```cpp
+// 纹理2D绑定（单层）
+void glFramebufferTexture2DMultisampleEXT(
+    GLenum target,           // GL_FRAMEBUFFER
+    GLenum attachment,       // GL_COLOR_ATTACHMENT0
+    GLenum textarget,        // GL_TEXTURE_2D
+    GLuint texture,          // 纹理ID（非MSAA纹理）
+    GLint level,             // mip level（通常为0）
+    GLsizei samples          // 采样数（2/4/8）
+);
+
+// 多视图纹理绑定（array + multiview）
+void glFramebufferTextureMultisampleMultiviewOVR(
+    GLenum target,
+    GLenum attachment,
+    GLuint texture,
+    GLint level,
+    GLsizei samples,
+    GLint baseViewIndex,
+    GLsizei numViews
+);
+
+// Renderbuffer绑定
+void glRenderbufferStorageMultisampleEXT(
+    GLenum target,           // GL_RENDERBUFFER
+    GLsizei samples,
+    GLenum internalformat,
+    GLsizei width,
+    GLsizei height
+);
+```
+
+### 使用条件
+
+| 条件 | 要求 | 说明 |
+|------|------|------|
+| 扩展可用 | `GL_EXT_multisampled_render_to_texture2` | 检查 `device.HasExtension()` |
+| Transient标志 | `CORE_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT` | RNG中**手动配置** `transient_attachment` |
+| Lazily内存 | `CORE_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT` | RNG中**手动配置** `lazily_allocated`（需配合Transient） |
+| 非Input附件 | 不能有 `CORE_IMAGE_USAGE_INPUT_ATTACHMENT_BIT` | Vulkan限制：TRANSIENT不能用于Input |
+| 非Backbuffer解析 | `IsDefaultResolve()` 返回false | 不能解析到默认帧缓冲 |
+
+### RNG配置示例
+
+```json
+{
+    "name": "acc",
+    "format": "r16g16b16a16_sfloat",
+    "usageFlags": "color_attachment | sampled",
+    "memoryPropertyFlags": "device_local | lazily_allocated",
+    "engineCreationFlags": "dynamic_barriers"
+}
+```
+
+**关键：**
+- `lazily_allocated` **需手动配合** `transient_attachment`，两者是设计最佳实践搭配
+- `transient_attachment` 表示图像内容不持久化，`lazily_allocated` 表示内存不持久化
+- 两者配合实现Tile-Based GPU的内存效率优化
+- 不能有 `input_attachment` flag（Vulkan限制：TRANSIENT_ATTACHMENT不能用于Input Attachment）
+
+### 代码路径（LumeRender）
+
+```
+GetFramebufferHandle()
+  ↓
+检查 multisampledRenderToTexture_ (line 840)
+  ↓
+MapColorAttachments() - 建立color到resolve的映射 (line 863)
+  ↓
+翻转映射：imageMap[resolve] = color (line 871-878)
+  ↓
+GenerateSubPassFBO()
+  ↓
+检查 imageMap[ci] 是否有映射 (line 438)
+  ↓
+BindToFboMultisampled() - 使用隐式解析绑定 (line 445-447)
+  ↓
+glFramebufferTexture2DMultisampleEXT() (line 388)
+```
+
+### 优势
+
+1. **性能最优**：GPU自动处理，无额外开销
+2. **代码简洁**：无需显式解析命令
+3. **ARM推荐**：避免glBlitFramebuffer的已知问题
+4. **内存效率**：可能使用Tile-Based渲染优化
+
+### 缺点
+
+1. 需要特定扩展支持
+2. 不支持作为Input Attachment使用
+3. 需要Transient标志
+
+---
+
+## 方法2：显式解析（glBlitFramebuffer）
+
+### 原理
+渲染结束后，使用glBlitFramebuffer将MSAA纹理/Renderbuffer的内容复制解析到非MSAA目标。
+
+### 核心函数
+
+```cpp
+void glBlitFramebuffer(
+    GLint srcX0, GLint srcY0,    // 源矩形左下
+    GLint srcX1, GLint srcY1,    // 源矩形右上
+    GLint dstX0, GLint dstY0,    // 目标矩形左下
+    GLint dstX1, GLint dstY1,    // 目标矩形右上
+    GLbitfield mask,             // GL_COLOR_BUFFER_BIT / GL_DEPTH_BUFFER_BIT
+    GLenum filter                // GL_NEAREST（解析必须用此值）
+);
+```
+
+### GLES限制
+
+**重要：OpenGL ES不支持 `glReadBuffer` 函数！**
+
+这意味着无法指定读取哪个颜色附件。GLES默认只读取 `GL_COLOR_ATTACHMENT0`。
+
+### 多附件解析方案
+
+由于GLES不支持glReadBuffer，多附件解析必须创建临时FBO，逐个绑定附件：
+
+```cpp
+GLuint frameBuffers[2];
+glGenFramebuffers(2, frameBuffers);
+
+for (uint32_t idx = 0; idx < resolveAttachmentCount; ++idx) {
+    // 绑定到临时FBO的ATTACHMENT0
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 
+                           srcType, srcTexture, 0);
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 
+                           dstType, dstTexture, 0);
+    
+    // 执行单附件解析
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, 
+                      GL_COLOR_BUFFER_BIT, GL_NEAREST);
+}
+
+glDeleteFramebuffers(2, frameBuffers);
+```
+
+### 绑定方式对比
+
+| 绑定方式 | 函数 | 适用场景 |
+|---------|------|---------|
+| 纹理2D | `glFramebufferTexture2D(GL_x_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture, level)` | 2D纹理 |
+| 纹理层 | `glFramebufferTextureLayer(GL_x_FRAMEBUFFER, attachment, texture, level, layer)` | Array纹理 |
+| Renderbuffer | `glFramebufferRenderbuffer(GL_x_FRAMEBUFFER, attachment, GL_RENDERBUFFER, rb)` | Renderbuffer |
+
+### 代码路径（LumeRender）
+
+```
+RenderCommandEndRenderPass()
+  ↓
+ResolveMSAA() (line 1647)
+  ↓
+检查 resolveAttachmentCount > 1
+  ↓
+创建临时FBO (line 1666-1669)
+  ↓
+逐个附件绑定到GL_COLOR_ATTACHMENT0 (line 1681-1682)
+  ↓
+glBlitFramebuffer() (line 1684-1687)
+  ↓
+删除临时FBO (line 1691)
+```
+
+### 优势
+
+1. 无需特定扩展（核心功能）
+2. 可用于任何纹理类型
+3. 支持Input Attachment
+
+### 缺点
+
+1. **性能较差**：多次FBO切换和绑定
+2. **ARM不推荐**：已知驱动问题
+3. **多附件复杂**：需要逐个处理
+4. **drawBuffers索引问题**：当前代码存在bug
+
+---
+
+## 方法3：Shader手动解析
+
+### 原理
+在Shader中读取MSAA纹理的每个sample，手动计算平均值。
+
+### 扩展要求
+`GL_EXT_texture_multisample`
+
+### Shader代码
+
+```glsl
+#extension GL_EXT_texture_multisample : enable
+
+uniform sampler2DMS msaaTexture;
+uniform int uSamples;
+
+vec4 manualResolve(vec2 uv, ivec2 size) {
+    vec4 result = vec4(0.0);
+    ivec2 coord = ivec2(uv * vec2(size));
+    
+    for (int i = 0; i < uSamples; ++i) {
+        result += texelFetch(msaaTexture, coord, i);
+    }
+    
+    return result / float(uSamples);
+}
+```
+
+### 使用流程
+
+1. 创建MSAA纹理（使用 `GL_TEXTURE_2D_MULTISAMPLE`）
+2. 渲染到MSAA纹理
+3. 创建单独的解析Pass
+4. Shader读取MSAA纹理，输出解析结果
+
+### 优势
+
+1. 完全控制解析过程
+2. 可实现自定义解析算法（非简单平均）
+3. 无需glBlitFramebuffer
+
+### 缺点
+
+1. **性能很差**：每个像素多次采样
+2. 需要额外扩展
+3. 需要额外渲染Pass
+4. 代码复杂度高
+
+---
+
+## 方法对比总结
+
+| 方法 | 需要glFramebufferTexture2D | 需要glBlitFramebuffer | 需要扩展 | 性能 | 复杂度 |
+|------|:-------------------------:|:--------------------:|:--------:|:----:|:------:|
+| 隐式解析 | ❌ | ❌ | ✅ | ⭐⭐⭐⭐⭐ | 低 |
+| 显式解析 | ✅ | ✅ | ❌ | ⭐⭐⭐ | 中 |
+| Shader解析 | ❌ | ❌ | ✅ | ⭐ | 高 |
+
+---
+
+## WBOIT当前问题分析
+
+### RNG配置检查
+
+`core3d_rng_cam_scene_hdrp_msaa_wboit.rng`中：
+
+| 目标 | memoryPropertyFlags | usageFlags | 预期触发隐式解析？ |
+|------|---------------------|------------|------------------|
+| acc_msaa | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
+| rev_msaa | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
+| acc | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
+| rev | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
+
+### 可能失败的原因
+
+检查 `GetFramebufferHandle()` 中的隐式解析启用条件：
+
+```cpp
+// Line 840: 检查扩展
+if (!multisampledRenderToTexture_) {
+    return;  // ← 扩展不可用时，跳过隐式解析
+}
+
+// Line 843-846: 检查多视图扩展
+if (!multiViewMultisampledRenderToTexture_ &&
+    std::any_of(..., viewMask != 0)) {
+    return;  // ← 多视图但扩展不支持
+}
+
+// Line 861: 检查是否解析到backbuffer
+if (!IsDefaultResolve(images, *pos)) {
+    MapColorAttachments(...);  // ← 只有非backbuffer才启用隐式解析
+}
+```
+
+### 验证步骤
+
+1. **检查扩展可用性**
+   ```cpp
+   bool extAvailable = device.HasExtension("GL_EXT_multisampled_render_to_texture2");
+   PLUGIN_LOG_I("GL_EXT_multisampled_render_to_texture2: %d", extAvailable);
+   ```
+
+2. **检查isTrans条件**
+   ```cpp
+   // BindToFboMultisampled中 (line 352, 365, 383)
+   const bool isTrans = (desc.usageFlags & CORE_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT);
+   if (multisampledRenderToTexture && isTrans && ...) {
+       // 使用隐式解析
+   }
+   ```
+
+3. **检查Input Attachment**
+   ```cpp
+   // MapColorAttachments中 (line 603-614)
+   if (images[color].image &&
+       (images[color].image->GetDesc().usageFlags & CORE_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
+       continue;  // ← 跳过，不映射
+   }
+   ```
+
+---
+
+## 最佳实践建议
+
+### 优先使用隐式解析
+
+1. **RNG配置**
+   ```json
+   {
+       "memoryPropertyFlags": "device_local | lazily_allocated",
+       "usageFlags": "color_attachment | sampled"  // 无input_attachment
+   }
+   ```
+
+2. **运行时检查**
+   - 验证 `GL_EXT_multisampled_render_to_texture2` 扩展可用
+   - 验证 `multisampledRenderToTexture_` 标志为true
+   - 验证 `imageMap` 映射正确建立
+
+### 回退到显式解析
+
+当隐式解析不可用时：
+1. 使用临时FBO逐附件解析
+2. 修复drawBuffers索引bug（使用idx而非计数器）
+3. 注意ARM性能警告
+
+---
+
+## 相关文件
+
+| 文件 | 关键函数 | 行号 |
+|------|---------|------|
+| `node_context_pool_manager_gles.cpp` | `BindToFboMultisampled` | 326-394 |
+| `node_context_pool_manager_gles.cpp` | `MapColorAttachments` | 594-623 |
+| `node_context_pool_manager_gles.cpp` | `GenerateSubPassFBO` | 422-488 |
+| `node_context_pool_manager_gles.cpp` | `GetFramebufferHandle` | 840-880 |
+| `render_backend_gles.cpp` | `ResolveMSAA` | 1647-1721 |
+| `gpu_image_gles.cpp` | Renderbuffer创建 | 216-226 |
+| `device_gles.cpp` | 扩展检查 | 1173-1182 |
+
+---
+
+## 参考资料
+
+1. [GL_EXT_multisampled_render_to_texture Extension Spec](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_multisampled_render_to_texture.txt)
+2. [OpenGL ES 3.0 Spec - glBlitFramebuffer](https://www.khronos.org/registry/OpenGL/specs/es/3.0/es_spec_3.0.html)
+3. ARM Mali Best Practices: MSAA Resolve Recommendations
