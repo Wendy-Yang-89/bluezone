@@ -184,61 +184,53 @@ PostProcessSource() 修复 binding
 
 ### 1.2 详细时序图
 
-```
-时序图: ShaderModuleGLES 创建到 Program 链接
+```plantuml
+@startuml
+title ShaderModuleGLES 创建到 Program 链接
 
-ShaderLoader                 ShaderModuleGLES              DeviceGLES           GpuProgramGLES
-    │                              │                            │                      │
-    │ LoadShaderFile()             │                            │                      │
-    │ ─────────────────────────>  │                            │                      │
-    │ (加载 .spv.gles + .lsb)     │                            │                      │
-    │                              │                            │                      │
-    │                              │ ProcessShaderModule()      │                      │
-    │                              │ ──────────────────────────>│                      │
-    │                              │ (解析 reflection data)     │                      │
-    │                              │                            │                      │
-    │                              │ CollectRes()               │                      │
-    │                              │ ──────────────────────────>│                      │
-    │                              │ (收集 binding 信息)        │                      │
-    │                              │                            │                      │
-    │                              │                            │ CreateShaderModule() │
-    │                              │                            │ <──────────────────  │
-    │                              │                            │                      │
-    │                              │                            │                      │ GetGLSL(specData)
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (获取 GLSL 源码)
-    │                              │                            │                      │
-    │                              │                            │                      │ Specialize()
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (注入 defines)
-    │                              │                            │                      │
-    │                              │                            │                      │ PostProcessSource()
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (修复 binding)
-    │                              │                            │                      │
-    │                              │                            │                      │ FixBindings()
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (替换 binding = 11)
-    │                              │                            │                      │
-    │                              │                            │ CacheShader()        │
-    │                              │                            │ <──────────────────  │
-    │                              │                            │ (编译 shader)        │
-    │                              │                            │                      │
-    │                              │                            │                      │ CacheProgram()
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (链接 program)
-    │                              │                            │                      │
-    │                              │                            │                      │ ProcessProgram()
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (处理资源映射)
-    │                              │                            │                      │
-    │                              │                            │                      │ BuildBindInfos()
-    │                              │                            │                      │ ────────────────>
-    │                              │                            │                      │ (构建 binding map)
-    │                              │                            │                      │
-    │                              │                            │                      │ 返回 GpuProgram
-    │                              │                            │                      │ <───────────────
-    │                              │                            │                      │
+participant ShaderLoader
+participant ShaderModuleGLES
+participant DeviceGLES
+participant GpuProgramGLES
+
+ShaderLoader -> ShaderModuleGLES : LoadShaderFile()
+note right : 加载 .spv.gles + .lsb
+
+ShaderModuleGLES -> DeviceGLES : ProcessShaderModule()
+note right : 解析 reflection data
+
+ShaderModuleGLES -> DeviceGLES : CollectRes()
+note right : 收集 binding 信息
+
+DeviceGLES <- GpuProgramGLES : CreateShaderModule()
+
+GpuProgramGLES -> GpuProgramGLES : GetGLSL(specData)
+note right : 获取 GLSL 源码
+
+GpuProgramGLES -> GpuProgramGLES : Specialize()
+note right : 注入 defines
+
+GpuProgramGLES -> GpuProgramGLES : PostProcessSource()
+note right : 修复 binding
+
+GpuProgramGLES -> GpuProgramGLES : FixBindings()
+note right : 替换 binding = 11
+
+DeviceGLES <- GpuProgramGLES : CacheShader()
+note right : 编译 shader
+
+GpuProgramGLES -> GpuProgramGLES : CacheProgram()
+note right : 链接 program
+
+GpuProgramGLES -> GpuProgramGLES : ProcessProgram()
+note right : 处理资源映射
+
+GpuProgramGLES -> GpuProgramGLES : BuildBindInfos()
+note right : 构建 binding map
+
+GpuProgramGLES <- GpuProgramGLES : 返回 GpuProgram
+
+@enduml
 ```
 
 ---
