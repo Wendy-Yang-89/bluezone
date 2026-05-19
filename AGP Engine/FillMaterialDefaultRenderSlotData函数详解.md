@@ -683,6 +683,40 @@ matManager->Destroy(matEntity);
 3. 从 `shader` 获取（中等优先级）
 4. 使用默认 opaque render slot（最低优先级）
 
+**常见 RenderSlot 类型：**
+
+| RenderSlot 名称 | 用途 |
+|----------------|------|
+| `CORE3D_RS_DM_FW_OPAQUE` | 不透明物体渲染 |
+| `CORE3D_RS_DM_FW_TRANSLUCENT` | 透明物体渲染（默认） |
+| `CORE3D_RS_DM_FW_TRANSLUCENT_WBOIT` | WBOIT 透明渲染 |
+| `CORE3D_RS_DM_FW_TRANSLUCENT_LLOIT` | LLOIT 透明渲染 |
+| `CORE3D_RS_DM_DEPTH` | 深度预渲染 / 阴影贴图 |
+| `CORE3D_RS_DM_DEPTH_VSM` | VSM 阴影深度渲染 |
+| `CORE3D_RS_DM_ENV` | 环境 / 天空盒渲染 |
+
+**RenderSlot 与 Shader 关联：**
+
+Shader 文件通过 `renderSlot` 字段指定所属渲染槽：
+
+```json
+// core3d_dm_fw_wboit.shader
+{
+    "renderSlot": "CORE3D_RS_DM_FW_TRANSLUCENT_WBOIT",
+    "renderSlotDefaultShader": true
+}
+```
+
+当材质使用该 Shader 时，会自动关联到 `CORE3D_RS_DM_FW_TRANSLUCENT_WBOIT` 渲染槽。
+
+**关键常量：**
+
+```cpp
+constexpr uint32_t INVALID_RENDER_SLOT_ID = ~0u;      // 无效渲染槽 ID
+constexpr uint32_t MAX_RENDER_SLOT_COUNT = 4;          // 最大渲染槽数量（材质可参与）
+constexpr uint32_t SHADER_DEFAULT_RENDER_SLOT_COUNT = 2;  // 单个材质默认渲染槽数量
+```
+
 ### 9.2 材质渲染标志
 
 **定义：** `RenderMaterialFlagBits`
@@ -713,9 +747,146 @@ matManager->Destroy(matEntity);
 
 ---
 
-## 十、与其他函数的关系
+## 十、RenderSlot 与 RenderNodeGraph 的关系
 
-### 10.1 与UpdateMaterialData的关系
+### 10.1 RenderNode 中的 RenderSlot 配置
+
+RenderNodeGraph 中的每个 RenderNode 通过 `renderSlot` 字段指定要渲染的渲染槽：
+
+```json
+// core3d_rng_cam_scene_lwrp_wboit.rng
+{
+    "typeName": "RenderNodeDefaultMaterialRenderSlot",
+    "nodeName": "CORE3D_RN_CAM_DM_ST_LWRP_WBOIT",
+    "renderSlot": "CORE3D_RS_DM_FW_TRANSLUCENT_WBOIT",
+    "renderSlotSortType": "back_to_front",
+    "renderSlotCullType": "view_frustum_cull"
+}
+```
+
+**关键配置字段：**
+- `renderSlot`: 指定该 RenderNode 渲染哪个渲染槽的材质
+- `renderSlotSortType`: 渲染排序方式（`by_material`、`back_to_front` 等）
+- `renderSlotCullType`: 剔除方式（`view_frustum_cull`、`none` 等）
+
+### 10.2 渲染流程关联
+
+```
+RenderNodeGraph 定义
+    ↓
+指定 RenderNode（配置 renderSlot）
+    ↓
+RenderNode 执行时
+    ↓
+查询所有属于该 renderSlot 的材质
+    ↓
+材质通过 FillMaterialDefaultRenderSlotData 确定 renderSlotId
+    ↓
+RenderNode 只渲染 renderSlotId 匹配的材质
+```
+
+### 10.3 RenderSlot 匹配逻辑
+
+```cpp
+// RenderNode 执行时
+void RenderNodeDefaultMaterialRenderSlot::ExecuteFrame(IRenderCommandList& cmdList) {
+    // 获取当前 RenderNode 配置的 renderSlotId
+    const uint32_t currentRenderSlotId = jsonInputs_.renderSlotId;
+    
+    // 遍历所有材质的渲染槽数据
+    for (const auto& materialSlotData : renderSlotData) {
+        if (materialSlotData.renderSlotId == currentRenderSlotId) {
+            // 渲染该材质
+            RenderMaterial(cmdList, materialSlotData);
+        }
+    }
+}
+```
+
+### 10.4 多 RenderNode 使用不同 RenderSlot
+
+一个 Camera 的 RenderNodeGraph 可以包含多个 RenderNode，各自渲染不同的渲染槽：
+
+```json
+// core3d_rng_cam_scene_hdrp.rng 示例
+{
+    "nodes": [
+        {
+            "nodeName": "CORE3D_RN_CAM_DM_SO",
+            "renderSlot": "CORE3D_RS_DM_FW_OPAQUE",     // 渲染不透明材质
+            "renderSlotSortType": "by_material"
+        },
+        {
+            "nodeName": "CORE3D_RN_CAM_DM_ST",
+            "renderSlot": "CORE3D_RS_DM_FW_TRANSLUCENT", // 渲染透明材质
+            "renderSlotSortType": "back_to_front"
+        }
+    ]
+}
+```
+
+**执行顺序：**
+1. Opaque RenderNode 先执行（渲染不透明物体）
+2. Translucent RenderNode 后执行（渲染透明物体，按 back-to-front 排序）
+
+### 10.5 添加新 RenderSlot 的步骤
+
+1. **在 Shader 文件中定义 renderSlot：**
+   ```json
+   // my_custom.shader
+   {
+       "renderSlot": "CORE3D_RS_MY_CUSTOM",
+       "renderSlotDefaultShader": true
+   }
+   ```
+
+2. **在 shaderpl 文件中配置 PipelineLayout：**
+   ```json
+   // my_custom.shaderpl
+   {
+       "pipelineLayout": "..."
+   }
+   ```
+
+3. **在 RenderNodeGraph 中添加对应 RenderNode：**
+   ```json
+   // my_custom_rng.rng
+   {
+       "typeName": "RenderNodeDefaultMaterialRenderSlot",
+       "nodeName": "MY_CUSTOM_RENDER_NODE",
+       "renderSlot": "CORE3D_RS_MY_CUSTOM"
+   }
+   ```
+
+4. **材质使用该 Shader 时自动关联到新 RenderSlot。**
+
+### 10.6 调试 RenderSlot 问题
+
+**检查材质的 renderSlotId：**
+```cpp
+PLUGIN_LOG_D("Material renderSlotId: %u", renderSlotData.data[0].renderSlotId);
+```
+
+**检查 Shader 关联的 renderSlot：**
+```cpp
+auto slotId = shaderMgr.GetRenderSlotId(shaderHandle);
+PLUGIN_LOG_D("Shader renderSlotId: %u", slotId);
+```
+
+**常见问题排查：**
+
+| 问题 | 可能原因 | 排查方法 |
+|------|---------|---------|
+| **材质未渲染** | renderSlotId 未正确设置 | 检查 FillMaterialDefaultRenderSlotData 输出 |
+| **材质未渲染** | Shader 未关联到正确的 renderSlot | 确认 shader 的 renderSlot 字段 |
+| **渲染顺序错误** | RenderNode 顺序配置错误 | 检查 RenderNodeGraph 配置 |
+| **渲染顺序错误** | 多个 RenderNode 使用相同 renderSlot | 确认 RenderNode 执行顺序 |
+
+---
+
+## 十一、与其他函数的关系
+
+### 11.1 与UpdateMaterialData的关系
 
 ```cpp
 // UpdateMaterialData 负责更新材质数据
@@ -730,7 +901,7 @@ FillMaterialDefaultRenderSlotData(shaderMgr, materialRenderSlots, matData, rende
 - 在材质数据更新时
 - 在渲染系统初始化时
 
-### 10.2 与AddFrameMaterialData的关系
+### 11.2 与AddFrameMaterialData的关系
 
 **区别：**
 - `UpdateMaterialData`: 材质级别，持久存储
@@ -742,9 +913,9 @@ FillMaterialDefaultRenderSlotData(shaderMgr, materialRenderSlots, matData, rende
 
 ---
 
-## 十一、数据传输路径总结
+## 十二、数据传输路径总结
 
-### 11.1 完整数据流
+### 12.1 完整数据流
 
 ```
 用户代码（MaterialComponent）
@@ -755,24 +926,25 @@ FillMaterialDefaultRenderSlotData（填充渲染槽数据）
     ↓ 从matData复制shader和graphicsState
 renderSlotData（输出到渲染系统）
     ↓ 包含shader、graphicsState、renderSlotId
-渲染系统使用renderSlotData进行渲染
+RenderNode执行（根据renderSlot匹配材质）
     ↓ BindPipeline、BindVertextBufferAndDraw
 ```
 
-### 11.2 数据转换过程
+### 12.2 数据转换过程
 
 | 阶段 | 数据类型 | 来源 | 目的 | 转换方式 |
 |------|---------|------|------|---------|
 | 用户代码 | MaterialComponent | 用户代码 | RenderDataStoreDefaultMaterial | 直接赋值 |
 | 材质数据 | MaterialData | RenderDataStoreDefaultMaterial::matData_ | matData_.data[materialIndex] | 直接访问 |
 | 渲染槽数据 | MaterialDefaultRenderSlotData | renderSlotData | 输出参数 | 从matData复制shader和graphicsState |
+| RenderNode | RenderNodeDefaultMaterialRenderSlot | renderSlotId | 输入参数 | 根据renderSlotId筛选材质 |
 | 渲染系统 | RenderSystem | renderSlotData | 输入参数 | 使用shader和graphicsState |
 
 ---
 
-## 十二、总结
+## 十三、总结
 
-### 12.1 函数核心作用
+### 13.1 函数核心作用
 
 `FillMaterialDefaultRenderSlotData` 函数的主要作用：
 
@@ -796,7 +968,7 @@ renderSlotData（输出到渲染系统）
    - 确保总是有有效的 Render Slot ID
    - 提高代码健壮性
 
-### 12.2 shader和graphicsState更新逻辑
+### 13.2 shader和graphicsState更新逻辑
 
 | 阶段 | 更新的字段 | 数据来源 | 更新原因 |
 |------|-----------|---------|---------|
@@ -805,7 +977,7 @@ renderSlotData（输出到渲染系统）
 | 设置ID | renderSlotId | 查询结果 | 确定最终的渲染槽ID |
 | 阴影投射者 | shader、graphicsState、renderSlotId | matData.depthShader | 添加深度渲染槽 |
 
-### 12.3 最佳实践要点
+### 13.3 最佳实践要点
 
 1. ✅ **设置材质的完整流程**
    - 创建材质实体
@@ -833,7 +1005,7 @@ renderSlotData（输出到渲染系统）
 
 ---
 
-## 十三、参考代码位置
+## 十四、参考代码位置
 
 | 文件路径 | 功能 |
 |---------|------|
@@ -842,10 +1014,12 @@ renderSlotData（输出到渲染系统）
 | `submodules/Lume3D/api/3d/ecs/components/material_component.h` | MaterialComponent 定义 |
 | `submodules/Lume3D/src/ecs/systems/render_system.cpp` | 使用示例 |
 | `submodules/LumeRender/api/render/device/intf_shader_manager.h` | ShaderManager接口定义 |
+| `submodules/Lume3D/assets/3d/rendernodegraphs/*.rng` | RenderNodeGraph配置示例 |
+| `submodules/Lume3D/assets/3d/shaders/*.shader` | Shader的renderSlot定义 |
 
 ---
 
-**文档版本**: 1.1  
+**文档版本**: 1.2  
 **创建日期**: 2026-05-18  
 **更新日期**: 2026-05-18  
-**状态**: 已合并完成 - 新增分离设计原因章节
+**状态**: 已合并完成 - 新增RenderSlot类型详解、RenderNodeGraph关系章节
