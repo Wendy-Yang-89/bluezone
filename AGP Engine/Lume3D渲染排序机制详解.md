@@ -163,53 +163,185 @@ constexpr uint64_t sRenderShift = 32U;  // 渲染哈希位移量
 
 ---
 
-## 五、不同 sortType 的 sortKey 位分布
+## 五、排序比较运算符
 
-### 5.1 BY_MATERIAL 模式
+**文件位置：** `src/render/render_node_scene_util.cpp:50-72`
 
+```cpp
+inline bool operator<(const SlotSubmeshIndex& lhs, const SlotSubmeshIndex& rhs)
+{
+    // Sorting is always ascending by sortLayerKey. For equal sortLayerKeys sortKey defines the order.
+    if (lhs.sortLayerKey < rhs.sortLayerKey) {
+        return true;
+    } else if (lhs.sortLayerKey == rhs.sortLayerKey) {
+        return (lhs.sortKey < rhs.sortKey);
+    }
+    return false;
+}
+
+inline bool operator>(const SlotSubmeshIndex& lhs, const SlotSubmeshIndex& rhs)
+{
+    // Sorting is always ascending by sortLayerKey. For equal sortLayerKeys sortKey defines the order.
+    if (lhs.sortLayerKey < rhs.sortLayerKey) {
+        return true;
+    } else if (lhs.sortLayerKey == rhs.sortLayerKey) {
+        return (lhs.sortKey > rhs.sortKey);  // sortKey 降序
+    }
+    return false;
+}
 ```
-位布局：[63 ... 32][31 ... 0]
-        渲染排序Hash    深度值
-        
-排序优先级：渲染排序Hash > 深度
+
+**关键点：**
+- `operator<`: sortLayerKey 升序 + sortKey 升序
+- `operator>`: sortLayerKey 升序 + sortKey 降序
+- sortLayerKey 总是升序（值越小越靠前）
+
+---
+
+## 六、不同 sortType 的排序规则详解
+
+### 6.1 BY_MATERIAL 模式
+
+**排序函数调用：**
+```cpp
+// render_node_scene_util.cpp:390
+std::sort(refSubmeshIndices.begin(), refSubmeshIndices.end(), Less<SlotSubmeshIndex>());
+```
+
+**sortKey 位分布：**
+```
+[63 ... 32][31 ... 0]
+ 渲染排序Hash   深度值
+```
+
+**排序规则（使用 operator< 升序）：**
+
+| 参数 | 排序方向 | 说明 |
+|------|----------|------|
+| **renderSortLayer** | 值越小越靠前 | 0最先渲染，63最后 |
+| **renderSortLayerOrder** | 值越小越靠前 | 0最先渲染，255最后 |
+| **depth（深度）** | 值越小越靠前（近→远） | 相同材质内从近到远渲染 |
+
+**排序流程：**
+```
+1. 先按 sortLayerKey 升序（renderSortLayer 小到大）
+2. 再按 sortKey 升序
+   - sortKey 高32位 = renderSortHash（小到大）
+   - sortKey 低32位 = depth（小到大）
+3. 按材质分组，每组内找最小深度
+4. 最终按 sortLayerKey + minDepth 升序排列
 ```
 
 **适用场景：**
 - 不透明物体渲染
-- 需要按材质分组（减少状态切换）
-- 相同材质内按深度排序（减少 overdraw）
+- 减少状态切换（材质分组）
+- 减少 overdraw（近→远渲染，深度测试剔除）
 
 ---
 
-### 5.2 FRONT_TO_BACK / BACK_TO_FRONT 模式
+### 6.2 FRONT_TO_BACK 模式
 
+**排序函数调用：**
+```cpp
+// render_node_scene_util.cpp:446-448
+// front-to-back render layer sort is 0 -> 63
+std::sort(refSubmeshIndices.begin(), refSubmeshIndices.end(), Less<SlotSubmeshIndex>());
 ```
-位布局：[63 ... 32][31 ... 0]
-        深度值          渲染排序Hash
-        
-排序优先级：深度 > 渲染排序Hash
+
+**sortKey 位分布：**
+```
+[63 ... 32][31 ... 0]
+   深度值      渲染排序Hash
+```
+
+**排序规则（使用 operator< 升序）：**
+
+| 参数 | 排序方向 | 说明 |
+|------|----------|------|
+| **renderSortLayer** | 值越小越靠前 | 0最先渲染，63最后 |
+| **renderSortLayerOrder** | 值越小越靠前 | 0最先渲染，255最后 |
+| **depth（深度）** | 值越小越靠前（近→远） | 从前景到背景渲染 |
+
+**渲染顺序图示：**
+```
+相机位置
+    ↓
+    ├─ depth=0（最近） → 最先渲染
+    ├─ depth=5
+    ├─ depth=10
+    └─ depth=20（最远） → 最后渲染
+    
+方向：近 → 远（FRONT_TO_BACK）
 ```
 
 **适用场景：**
-- 透明物体渲染
-- 需要按深度排序（正确的透明混合）
-- 相同深度内按材质分组（优化性能）
+- 透明物体渲染（从近到远）
+- OIT 算法兼容
+- 正确的深度顺序
 
 ---
 
-### 5.3 sortType 对比表
+### 6.3 BACK_TO_FRONT 模式
 
-| sortType | 高32位 | 低32位 | 主排序键 | 适用场景 |
-|-----------|--------|--------|----------|----------|
-| **BY_MATERIAL** | renderSortHash | 深度 | 材质优先 | 不透明物体，减少状态切换 |
-| **FRONT_TO_BACK** | 深度 | renderSortHash | 深度优先 | 透明物体（从后往前渲染） |
-| **BACK_TO_FRONT** | 深度 | renderSortHash | 深度优先 | 特殊透明场景（从前往后） |
+**排序函数调用：**
+```cpp
+// render_node_scene_util.cpp:449-451
+// back-to-front render layer sort is 63 -> 0
+std::sort(refSubmeshIndices.begin(), refSubmeshIndices.end(), Greater<SlotSubmeshIndex>());
+```
+
+**sortKey 位分布：**
+```
+[63 ... 32][31 ... 0]
+   深度值      渲染排序Hash
+```
+
+**排序规则（使用 operator> 降序）：**
+
+| 参数 | 排序方向 | 说明 |
+|------|----------|------|
+| **renderSortLayer** | 值越小越靠前 | 仍为升序（0最先） |
+| **renderSortLayerOrder** | 值越小越靠前 | 仍为升序（0最先） |
+| **depth（深度）** | 值越大越靠前（远→近） | 从背景到前景渲染 |
+
+**渲染顺序图示：**
+```
+相机位置
+    ↓
+    ├─ depth=20（最远） → 最先渲染
+    ├─ depth=10
+    ├─ depth=5
+    └─ depth=0（最近） → 最后渲染
+    
+方向：远 → 近（BACK_TO_FRONT）
+```
+
+**适用场景：**
+- 透明物体渲染（从远到近）
+- 标准透明混合顺序
+- 确保后渲染的透明物体正确覆盖
 
 ---
 
-## 六、使用场景
+### 6.4 排序规则总结表
 
-### 6.1 深度测试但不写入深度的对象
+| sortType | renderSortLayer | renderSortLayerOrder | depth | 渲染方向 |
+|-----------|-----------------|----------------------|-------|----------|
+| **BY_MATERIAL** | 小→大（升序） | 小→大（升序） | 小→大（近→远） | 材质优先，减少状态切换 |
+| **FRONT_TO_BACK** | 小→大（升序） | 小→大（升序） | 小→大（近→远） | 从前景到背景 |
+| **BACK_TO_FRONT** | 小→大（升序） | 小→大（升序） | 大→小（远→近） | 从背景到前景 |
+
+**关键结论：**
+- `renderSortLayer` 和 `renderSortLayerOrder` 在所有模式下都是**值越小越靠前渲染**
+- `depth` 的排序方向由 `sortType` 决定：
+  - BY_MATERIAL / FRONT_TO_BACK: **值越小越靠前**（近→远）
+  - BACK_TO_FRONT: **值越大越靠前**（远→近）
+
+---
+
+## 七、使用场景
+
+### 7.1 深度测试但不写入深度的对象
 
 ```cpp
 // 透明效果、粒子系统
@@ -219,7 +351,7 @@ materialHandle->renderSort.renderSortLayerOrder = 0;
 
 ---
 
-### 6.2 角色/相机对象优先渲染
+### 7.2 角色/相机对象优先渲染
 
 ```cpp
 // 优先渲染用于视锥剔除优化
@@ -229,7 +361,7 @@ characterMaterial->renderSort.renderSortLayerOrder = 0;
 
 ---
 
-### 6.3 平面层级排序
+### 7.3 平面层级排序
 
 ```cpp
 // 背景平面
@@ -242,7 +374,7 @@ foregroundMaterial->renderSort.renderSortLayer = 15;
 
 ---
 
-### 6.4 Submesh 覆盖 Material 排序
+### 7.4 Submesh 覆盖 Material 排序
 
 ```cpp
 // Material 设置默认排序
@@ -255,7 +387,7 @@ submesh.renderSortLayerOrder = 3;
 
 ---
 
-## 七、推荐的层级分配
+## 八、推荐的层级分配
 
 | 层级范围 | 用途 | 示例 |
 |----------|------|------|
@@ -269,9 +401,9 @@ submesh.renderSortLayerOrder = 3;
 
 ---
 
-## 八、性能优化建议
+## 九、性能优化建议
 
-### 8.1 BY_MATERIAL 模式优化
+### 9.1 BY_MATERIAL 模式优化
 
 1. **减少状态切换**
    - 相同材质物体连续渲染
@@ -287,7 +419,7 @@ submesh.renderSortLayerOrder = 3;
 
 ---
 
-### 8.2 FRONT_TO_BACK 模式优化
+### 9.2 FRONT_TO_BACK 模式优化
 
 1. **正确的透明混合**
    - 深度大的物体先渲染
@@ -299,7 +431,7 @@ submesh.renderSortLayerOrder = 3;
 
 ---
 
-### 8.3 视锥剔除优化
+### 9.3 视锥剔除优化
 
 ```cpp
 // 优先渲染可能遮挡大面积的对象
@@ -308,7 +440,7 @@ largeObject->renderSort.renderSortLayer = 0;
 
 ---
 
-## 九、常见问题
+## 十、常见问题
 
 ### Q1：为什么默认值是32？
 
@@ -328,9 +460,9 @@ largeObject->renderSort.renderSortLayer = 0;
 
 ---
 
-## 十、调试验证
+## 十一、调试验证
 
-### 10.1 检查 sortKey
+### 11.1 检查 sortKey
 
 ```cpp
 CORE_LOG_D("sortKey: 0x%016llX, depth: %f, renderHash: 0x%08X", 
@@ -339,7 +471,7 @@ CORE_LOG_D("sortKey: 0x%016llX, depth: %f, renderHash: 0x%08X",
 
 ---
 
-### 10.2 验证位分布
+### 11.2 验证位分布
 
 ```cpp
 uint32_t high32 = (sortKey >> 32) & 0xFFFFFFFF;
@@ -354,7 +486,7 @@ if (sortType == BY_MATERIAL) {
 
 ---
 
-## 十一、版本历史
+## 十二、版本历史
 
 | 版本 | 日期 | 描述 |
 |------|------|------|
@@ -362,7 +494,7 @@ if (sortType == BY_MATERIAL) {
 
 ---
 
-## 十二、参考资料
+## 十三、参考资料
 
 | 文件 | 描述 |
 |------|------|
