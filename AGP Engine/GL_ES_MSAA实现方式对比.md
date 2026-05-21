@@ -22,20 +22,9 @@
 | TAA | 时域累积，利用历史帧信息 | 低-中 |
 | SSAA | 超采样，全屏抗锯齿 | 高 |
 
-### MSAA的重要性
-
-**MSAA（Multisample Anti-Aliasing）** 是应用最广泛的抗锯齿技术：
-- 仅对几何边缘进行多重采样，片元着色器仍执行一次
-- 性能开销可控（2x/4x/8x采样）
-- 硬件支持广泛，所有现代GPU均支持
-
----
-
-## 核心概念
-
 ### MSAA工作原理
 
-MSAA在每个像素内设置多个采样点（如2、4、8个），光栅化时：
+MSAA（Multisample Anti-Aliasing）在每个像素内设置多个采样点（如2、4、8个），光栅化时：
 
 1. **深度/覆盖率测试**：每个采样点独立判断是否被几何覆盖
 2. **片元着色**：每个像素执行一次片元着色器（与采样数无关）
@@ -87,10 +76,6 @@ OpenGL ES相比桌面OpenGL有以下限制：
 本文档针对上述限制，对比分析OpenGL ES中三种MSAA解析方案。
 
 ---
-
-## 概述
-
-OpenGL ES中MSAA（Multisample Anti-Aliasing）解析有多种方法。本文档总结各种方法的原理、使用条件和优劣对比。
 
 ## 方法1：隐式解析（推荐）
 
@@ -166,7 +151,7 @@ void glRenderbufferStorageMultisampleEXT(
 ### 代码路径（LumeRender）
 
 ```
-GetFramebufferHandle()
+FilterRenderPass() (line 837)
   ↓
 检查 multisampledRenderToTexture_ (line 840)
   ↓
@@ -174,7 +159,7 @@ MapColorAttachments() - 建立color到resolve的映射 (line 863)
   ↓
 翻转映射：imageMap[resolve] = color (line 871-878)
   ↓
-GenerateSubPassFBO()
+GenerateSubPassFBO() (line 422)
   ↓
 检查 imageMap[ci] 是否有映射 (line 438)
   ↓
@@ -258,17 +243,17 @@ glDeleteFramebuffers(2, frameBuffers);
 ```
 RenderCommandEndRenderPass()
   ↓
-ResolveMSAA() (line 1647)
+ResolveMSAA() (line 1631)
   ↓
 检查 resolveAttachmentCount > 1
   ↓
-创建临时FBO (line 1666-1669)
+创建临时FBO (line 1650-1653)
   ↓
-逐个附件绑定到GL_COLOR_ATTACHMENT0 (line 1681-1682)
+逐个附件绑定到GL_COLOR_ATTACHMENT0 (line 1665-1666)
   ↓
-glBlitFramebuffer() (line 1684-1687)
+glBlitFramebuffer() (line 1668-1671)
   ↓
-删除临时FBO (line 1691)
+删除临时FBO (line 1675)
 ```
 
 ### 优势
@@ -361,51 +346,15 @@ vec4 manualResolve(vec2 uv, ivec2 size) {
 
 ### 可能失败的原因
 
-检查 `GetFramebufferHandle()` 中的隐式解析启用条件：
+隐式解析启用需满足方法1"使用条件"中的全部要求。关键检查点（均在 `node_context_pool_manager_gles.cpp` 中）：
 
-```cpp
-// Line 840: 检查扩展
-if (!multisampledRenderToTexture_) {
-    return;  // ← 扩展不可用时，跳过隐式解析
-}
-
-// Line 843-846: 检查多视图扩展
-if (!multiViewMultisampledRenderToTexture_ &&
-    std::any_of(..., viewMask != 0)) {
-    return;  // ← 多视图但扩展不支持
-}
-
-// Line 861: 检查是否解析到backbuffer
-if (!IsDefaultResolve(images, *pos)) {
-    MapColorAttachments(...);  // ← 只有非backbuffer才启用隐式解析
-}
-```
-
-### 验证步骤
-
-1. **检查扩展可用性**
-   ```cpp
-   bool extAvailable = device.HasExtension("GL_EXT_multisampled_render_to_texture2");
-   PLUGIN_LOG_I("GL_EXT_multisampled_render_to_texture2: %d", extAvailable);
-   ```
-
-2. **检查isTrans条件**
-   ```cpp
-   // BindToFboMultisampled中 (line 352, 365, 383)
-   const bool isTrans = (desc.usageFlags & CORE_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT);
-   if (multisampledRenderToTexture && isTrans && ...) {
-       // 使用隐式解析
-   }
-   ```
-
-3. **检查Input Attachment**
-   ```cpp
-   // MapColorAttachments中 (line 603-614)
-   if (images[color].image &&
-       (images[color].image->GetDesc().usageFlags & CORE_IMAGE_USAGE_INPUT_ATTACHMENT_BIT)) {
-       continue;  // ← 跳过，不映射
-   }
-   ```
+| 检查点 | 位置 | 条件 |
+|--------|------|------|
+| 扩展可用 | `FilterRenderPass` (line 840) | `multisampledRenderToTexture_` 为true |
+| 多视图兼容 | line 843-846 | `multiViewMultisampledRenderToTexture_` 或 `viewMask == 0` |
+| 非backbuffer | line 861 | `IsDefaultResolve()` 返回false |
+| isTrans标志 | `BindToFboMultisampled` (line 352, 365, 383) | `usageFlags & CORE_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT` |
+| 非Input Attachment | `MapColorAttachments` (line 603-614) | 无 `CORE_IMAGE_USAGE_INPUT_ATTACHMENT_BIT` |
 
 ---
 
@@ -439,13 +388,14 @@ if (!IsDefaultResolve(images, *pos)) {
 
 | 文件 | 关键函数 | 行号 |
 |------|---------|------|
+| `node_context_pool_manager_gles.cpp` | `FilterRenderPass` | 837-880 |
 | `node_context_pool_manager_gles.cpp` | `BindToFboMultisampled` | 326-394 |
 | `node_context_pool_manager_gles.cpp` | `MapColorAttachments` | 594-623 |
 | `node_context_pool_manager_gles.cpp` | `GenerateSubPassFBO` | 422-488 |
-| `node_context_pool_manager_gles.cpp` | `GetFramebufferHandle` | 840-880 |
-| `render_backend_gles.cpp` | `ResolveMSAA` | 1647-1721 |
+| `node_context_pool_manager_gles.cpp` | `GetFramebufferHandle` | 748-804 |
+| `render_backend_gles.cpp` | `ResolveMSAA` | 1631-1690 |
 | `gpu_image_gles.cpp` | Renderbuffer创建 | 216-226 |
-| `device_gles.cpp` | 扩展检查 | 1173-1182 |
+| `device_gles.cpp` | 扩展检查 | 1171-1182 |
 
 ---
 
