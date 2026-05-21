@@ -1,4 +1,153 @@
-# 阴影Pass、Depth Pre-Pass与正常Mesh渲染Pass详解
+# 渲染Pass分类详解
+
+## 背景与问题引入
+
+### 渲染Pass概念
+
+**渲染Pass（Render Pass）** 是GPU渲染的独立执行阶段：
+
+- 拥有独立的渲染目标和状态配置
+- 执行特定的渲染任务（如阴影、深度、颜色）
+- 按顺序执行，形成完整渲染流程
+
+现代渲染引擎将渲染分解为多个Pass，实现功能分离和性能优化。
+
+### 多Pass渲染架构
+
+Lume3D采用多Pass渲染架构组织渲染流程：
+
+```
+渲染流程：
+  Shadow Pass → Depth Pre-Pass → Main Pass → Post Process
+      ↓              ↓              ↓              ↓
+   阴影贴图       深度缓冲        颜色输出       后处理效果
+```
+
+每个Pass承担不同职责，协同完成最终画面渲染。
+
+### 三种核心Pass
+
+Lume3D渲染系统包含三种核心渲染Pass：
+
+| Pass类型 | 目的 | 执行时机 |
+|---------|------|---------|
+| **Shadow Pass** | 生成阴影贴图 | 场景级，最早执行 |
+| **Depth Pre-Pass** | 预填充深度缓冲 | 相机级，Main Pass前 |
+| **Main Pass** | 完整几何渲染 | 相机级，主渲染 |
+
+理解各Pass的作用和关系，是配置渲染流程的基础。
+
+### 本文档解决的问题
+
+本文档详细对比三种Pass的定义、配置和执行机制：
+
+- 各Pass的目的和技术细节
+- RenderSlot和RenderNode的对应关系
+- 触发条件和性能优化策略
+
+---
+
+## 核心概念
+
+### Shadow Pass
+
+**Shadow Pass（阴影Pass）** 从光源视角渲染场景：
+
+- 生成Shadow Map（阴影深度贴图）
+- 为阴影接收者提供遮挡信息
+- 执行于场景级RenderNodeGraph
+
+技术要点：
+- 仅渲染深度，不输出颜色
+- 使用光源Camera的视角和投影
+- 支持PCF、VSM等阴影过滤技术
+
+### Depth Pre-Pass
+
+**Depth Pre-Pass（深度预渲染）** 在主渲染前填充深度：
+
+- 仅渲染几何的深度信息
+- 减少主Pass的overdraw（重复渲染）
+- 为透明材质提供正确的深度基准
+
+触发条件：
+- 场景存在Transmission材质
+- Camera启用 `ALLOW_COLOR_PRE_PASS_BIT`
+- 强制启用 `FORCE_COLOR_PRE_PASS_BIT`
+
+### Main Pass
+
+**Main Pass（主渲染Pass）** 执行完整的几何渲染：
+
+- 渲染不透明物体（Opaque）
+- 渲染半透明物体（Translucent）
+- 输出最终颜色到屏幕或离屏目标
+
+Main Pass是渲染流程的核心，输出可见画面。
+
+### RenderNodeGraph层级
+
+RenderNodeGraph分为两个层级：
+
+| 层级 | 配置文件 | 包含内容 |
+|------|---------|---------|
+| **场景级** | `core3d_rng_scene.rng` | Shadow Pass |
+| **相机级** | `core3d_rng_cam_scene.rng` | Depth Pre-Pass + Main Pass |
+
+场景级Pass与相机无关，相机级Pass依赖Camera配置。
+
+### 三种Pass执行顺序
+
+```
+完整渲染流程执行顺序:
+
+┌────────────────────────────────────────────────────┐
+│ 场景级 RenderNodeGraph (core3d_rng_scene.rng)       │
+├────────────────────────────────────────────────────┤
+│                                                    │
+│ Shadow Pass                                        │
+│   └─ 从光源视角渲染场景深度                          │
+│   └─ 生成Shadow Map                                │   
+│   └─ RenderNode: RenderNodeDefaultShadowRenderSlot │
+│   └─ RenderSlot: CORE3D_RS_DM_DEPTH / VSM          │
+│                                                    │
+└────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────────┐
+│ 相机级 RenderNodeGraph (core3d_rng_cam_scene.rng)     │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│ Depth Pre-Pass (条件触发)                             │
+│   └─ 触发条件: Transmission材质 / 强制Pre-Pass         │
+│   └─ 仅渲染深度信息                                   │
+│   └─ RenderNode: RenderNodeDefaultMaterialRenderSlot │
+│   └─ RenderSlot: CORE3D_RS_DM_DEPTH_PRE_PASS         │
+│                                                      │
+└──────────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ Main Pass                                        │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│ Opaque渲染 (不透明物体)                           │
+│   └─ RenderSlot: CORE3D_RS_DM_OPAQUE             │
+│                                                  │
+│ Translucent渲染 (半透明物体)                      │
+│   └─ RenderSlot: CORE3D_RS_DM_TRANSLUCENT        │
+│                                                  │
+│ 输出最终颜色                                      │
+│                                                  │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 最终画面                                          │
+└──────────────────────────────────────────────────┘
+```
+
+---
 
 ## 一、概述
 
@@ -233,29 +382,29 @@ Time Line:
 void RenderNodeDefaultShadowRenderSlot::ExecuteFrame(IRenderCommandList& cmdList) {
     // 1. 获取光源列表
     const auto lights = storeLight->GetLights();
-    
+
     // 2. 创建 Render Pass
     renderPass_ = CreateRenderPass(shadowBuffers_);
     cmdList.BeginRenderPass(renderPass_.renderPassDesc, ...);
-    
+
     // 3. 遍历每个阴影光源
     for (const auto& light : lights) {
         if ((light.lightUsageFlags & RenderLight::LIGHT_USAGE_SHADOW_LIGHT_BIT) == 0) {
             continue;  // 非阴影光源跳过
         }
-        
+
         // 4. 获取阴影相机
         const auto& camera = cameras[light.shadowCameraIndex];
-        
+
         // 5. 处理可见的 Submesh
         ProcessSlotSubmeshes(*storeCamera, *storeMaterial, light.shadowCameraIndex);
-        
+
         // 6. 渲染 Submesh
         RenderSubmeshes(cmdList, *storeMaterial, shadowType, camera, light, shadowPassIdx);
-        
+
         shadowPassIdx++;
     }
-    
+
     cmdList.EndRenderPass();
 }
 ```
@@ -297,7 +446,7 @@ cmdList.SetDynamicStateScissor(sd);
 
 ```cpp
 // render_node_default_shadow_render_slot.cpp:373-376
-const auto& selectableShaders = 
+const auto& selectableShaders =
     (shadowType == IRenderDataStoreDefaultLight::ShadowType::VSM ||
      shadowType == IRenderDataStoreDefaultLight::ShadowType::VARIABLE_PCF)
         ? vsmShaders_   // VSM 需要颜色输出
@@ -497,7 +646,7 @@ Depth Pre-Pass:
 
 ```cpp
 // 阴影 Pass PSO 创建
-ShaderStateData ssd { 
+ShaderStateData ssd {
     ssp.shaderHandle,      // 使用 depthShader
     ssp.gfxStateHandle,    // 使用 depthShader.graphicsState
     ...
@@ -506,7 +655,7 @@ ssd.hash = HashShaderAndSubmesh(ssd.hash, currMaterialFlags.renderDepthHash, ia)
 // 使用 renderDepthHash（不同于正常渲染的 renderHash）
 
 // 正常 Pass PSO 创建
-ShaderStateData ssd { 
+ShaderStateData ssd {
     ssp.shaderHandle,      // 使用 materialShader
     ssp.gfxStateHandle,    // 使用 materialShader.graphicsState
     ...
@@ -773,13 +922,13 @@ Transmission 材质会自动触发 Depth Pre-Pass，这一机制发生在 Render
 // render_system.cpp:1912-1920
 void RenderSystem::EvaluateRenderDataStoreOutput() {
     const auto info = dsMaterial_->GetRenderFrameObjectInfo();
-    
+
     // 检查场景中是否存在 Transmission 材质
     if (info.renderMaterialFlags & RenderMaterialFlagBits::RENDER_MATERIAL_TRANSMISSION_BIT) {
         // 如果存在，设置 NEEDS_COLOR_PRE_PASS 标志
         renderProcessing_.frameFlags |= NEEDS_COLOR_PRE_PASS;  // ← 自动触发 Pre-Pass
     }
-    
+
     // ...
 }
 ```
@@ -790,19 +939,19 @@ void RenderSystem::EvaluateRenderDataStoreOutput() {
 
 ```cpp
 // render_system.cpp:2239-2252
-const bool createPrePassCam = 
+const bool createPrePassCam =
     (component.pipelineFlags & CameraComponent::FORCE_COLOR_PRE_PASS_BIT) ||   // 强制触发
     (component.pipelineFlags & CameraComponent::ALLOW_COLOR_PRE_PASS_BIT);      // 允许自动触发
 
 if (createPrePassCam) {
     // 计算 Pre-Pass Camera 的唯一 ID
     prePassCameraHash = Hash(camera.id, camera.id);
-    
+
     // 设置 Pre-Pass 颜色目标的名称
-    camera.prePassColorTargetName = renderScene.name + 
+    camera.prePassColorTargetName = renderScene.name +
                                      DefaultMaterialCameraConstants::CAMERA_COLOR_PREFIX_NAME +
                                      to_hex(prePassCameraHash) + '_' + to_hex(prePassCameraHash);
-    
+
     // 创建 Pre-Pass RenderCamera
     tmpCameras.push_back(CreateColorPrePassRenderCamera(
         *gpuHandleMgr_, *cameraMgr_, *gpuResourceMgr_, camera,
@@ -816,7 +965,7 @@ if (createPrePassCam) {
 
 ```cpp
 // render_system.cpp:2923
-const vector<CameraOrdering> baseCameras = 
+const vector<CameraOrdering> baseCameras =
     SortCameras(renderCameras, (renderProcessing_.frameFlags & NEEDS_COLOR_PRE_PASS));
 ```
 
@@ -1049,10 +1198,10 @@ camera.pipelineFlags = 0;  // 不设置任何 Pre-Pass 相关标志
 **推荐强制触发的场景：**
 1. **复杂场景（大量 Overdraw）：**
    - Pre-Pass 提前填充深度，减少主 Pass 的像素计算
-   
+
 2. **延迟渲染（Deferred）：**
    - Pre-Pass 提供 G-Buffer 的基础数据
-   
+
 3. **自定义 Transmission 效果：**
    - 需要特定的 Pre-Pass 配置（分辨率、降采样等）
 
@@ -1072,7 +1221,7 @@ camera.pipelineFlags = 0;  // 不设置任何 Pre-Pass 相关标志
 
 ---
 
-**文档版本**: 1.1  
-**创建日期**: 2026-05-18  
-**更新日期**: 2026-05-18  
+**文档版本**: 1.1
+**创建日期**: 2026-05-18
+**更新日期**: 2026-05-18
 **状态**: 已更新 - 新增 Transmission 自动触发 Pre-Pass 机制与 Pre-Pass 输出使用说明

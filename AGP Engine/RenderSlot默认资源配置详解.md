@@ -1,4 +1,140 @@
-# renderSlotDefaultShader 和 renderSlotDefaultState 详解
+# RenderSlot默认资源配置详解
+
+## 背景与问题引入
+
+### RenderSlot概念
+
+**RenderSlot（渲染槽位）** 是LumeRender的资源匹配机制核心：
+
+- 将Shader/GraphicsState与特定渲染场景关联
+- 支持同一Shader在不同渲染场景使用不同配置
+- 实现渲染资源的动态选择
+
+典型RenderSlot：
+- `CORE3D_RS_DM_OPAQUE` - 不透明物体渲染
+- `CORE3D_RS_DM_TRANSLUCENT` - 半透明物体渲染
+- `CORE3D_RS_DM_DEPTH` - 深度/阴影渲染
+
+### 默认资源配置问题
+
+LumeRender需要为每个RenderSlot配置默认资源：
+
+| 资源类型 | 作用 | 配置时机 |
+|---------|------|---------|
+| **Shader** | 定义渲染程序 | Shader加载完成后绑定 |
+| **GraphicsState** | 定义GPU渲染状态 | State创建完成后绑定 |
+
+问题：如何在资源加载时自动绑定到正确的RenderSlot？
+
+### 配置标志的作用
+
+`renderSlotDefaultShader` 和 `renderSlotDefaultState` 标志解决自动绑定问题：
+
+- 在Shader/GraphicsState的元数据中声明默认槽位
+- 资源加载完成后自动调用 `SetRenderSlotData()`
+- 无需手动编写绑定代码
+
+此机制简化渲染配置，实现声明式资源管理。
+
+### 本文档解决的问题
+
+本文档详细分析两个配置标志的定义、作用和触发机制：
+
+- 标志的数据结构位置
+- 自动绑定的触发条件
+- 与ShaderVariant/ShaderStateVariant的关系
+
+---
+
+## 核心概念
+
+### ShaderVariant
+
+**ShaderVariant** 是Shader的变体配置：
+
+| 字段 | 类型 | 作用 |
+|------|------|------|
+| `variantName` | string | 变体唯一标识 |
+| `renderSlot` | string | 关联的RenderSlot名称 |
+| `renderSlotDefaultShader` | bool | 是否作为默认Shader |
+| `shaders` | vector | SPIR-V文件列表 |
+
+ShaderVariant支持同一Shader的多种配置（如不同材质、不同渲染模式）。
+
+### ShaderStateVariant
+
+**ShaderStateVariant** 是GraphicsState的变体配置：
+
+| 字段 | 类型 | 作用 |
+|------|------|------|
+| `renderSlot` | string | 关联的RenderSlot名称 |
+| `variantName` | string | 变体唯一标识 |
+| `renderSlotDefaultState` | bool | 是否作为默认GraphicsState |
+| `stateFlags` | uint32 | 状态配置标志 |
+
+ShaderStateVariant定义GPU状态（Blend、Depth、Raster等）的多种配置。
+
+### SetRenderSlotData函数
+
+**SetRenderSlotData** 是ShaderManager的核心接口：
+
+```cpp
+void SetRenderSlotData(
+    const RenderHandle& shaderHandle,    // Shader句柄
+    const RenderHandle& graphicsHandle,  // GraphicsState句柄
+    const uint32_t renderSlotId          // RenderSlot ID
+);
+```
+
+此函数将Shader/GraphicsState绑定到指定RenderSlot，供后续渲染查询使用。
+
+### 自动绑定触发流程
+
+```
+renderSlotDefaultShader/renderSlotDefaultState 自动绑定流程:
+
+┌──────────────────────────────────────────────────┐
+│ Shader加载流程                                    │
+├──────────────────────────────────────────────────┤
+│ 加载Shader资源                                    │
+│   └─ 解析ShaderVariant配置                        │
+│   └─ 检查renderSlotDefaultShader标志              │
+│   └─ if (renderSlotDefaultShader == true)        │
+│       └─ 解析renderSlot名称                       │
+│       └─ GetRenderSlotId(renderSlotName)         │
+│         └─► 返回: renderSlotId                   │
+│       └─ SetRenderSlotData(shaderHandle, {}, id) │
+│         └─► 自动绑定到RenderSlot                  │
+└──────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────┐
+│ GraphicsState创建流程                               │
+├────────────────────────────────────────────────────┤
+│ 创建GraphicsState                                   │
+│   └─ 解析ShaderStateVariant配置                     │
+│   └─ 检查renderSlotDefaultState标志                 │
+│   └─ if (renderSlotDefaultState == true)           │
+│       └─ 解析renderSlot名称                         │
+│       └─ GetRenderSlotId(renderSlotName)           │
+│         └─► 返回: renderSlotId                     │
+│       └─ SetRenderSlotData({}, graphicsHandle, id) │
+│         └─► 自动绑定到RenderSlot                    │
+└────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────┐
+│ 运行时查询                                        │
+├──────────────────────────────────────────────────┤
+│ GetShaderHandle(shader, renderSlotId)            │
+│   └─► 查询RenderSlot绑定的Shader                  │
+│   └─► 返回: 匹配的ShaderVariant                   │
+│                                                  │
+│ GetGraphicsStateHandle(shader, renderSlotId)     │
+│   └─► 查询RenderSlot绑定的GraphicsState           │
+│   └─► 返回: 匹配的GraphicsState                   │
+└──────────────────────────────────────────────────┘
+```
+
+---
 
 ## 概述
 
@@ -192,7 +328,7 @@ void ShaderLoader::CreateShaderStates(...)
     for (size_t stateIdx = 0; stateIdx < states.size(); ++stateIdx) {
         const auto& variant = variantData[stateIdx];
         const RenderHandleReference handle = shaderMgr_.CreateGraphicsState(createInfo, variantCreateInfo);
-        
+
         if (variant.renderSlotDefaultState && (!variant.renderSlot.empty())) {
             const uint32_t renderSlotId = shaderMgr_.GetRenderSlotId(variant.renderSlot);
             shaderMgr_.SetRenderSlotData({ renderSlotId, {}, handle, {}, {} });

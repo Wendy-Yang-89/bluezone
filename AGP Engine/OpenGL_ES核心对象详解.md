@@ -1,4 +1,106 @@
-# OpenGL ES核心对象详解：Texture2D、Texture Layer、Renderbuffer、Framebuffer
+# OpenGL_ES核心对象详解
+
+## 背景与问题引入
+
+### OpenGL ES渲染架构
+
+OpenGL ES是移动平台的图形渲染API，采用对象化设计管理渲染资源。渲染过程涉及多种GPU对象，各对象承担不同职责：
+
+- **数据存储对象**：Texture、Renderbuffer - 存储图像/渲染数据
+- **容器管理对象**：Framebuffer - 组织渲染目标集合
+- **状态对象**：Pipeline、Sampler - 配置渲染参数
+
+理解这些对象的特性差异，是正确配置渲染管线的基础。
+
+### 核心问题
+
+在OpenGL ES渲染系统中，开发者常面临以下选择：
+
+1. **Texture还是Renderbuffer**：颜色附件应使用哪种对象？
+2. **MSAA支持**：如何实现多重采样抗锯齿？
+3. **多视图渲染**：VR左右眼如何高效共享资源？
+4. **离屏渲染**：渲染结果如何传递给后续Pass？
+
+错误选择可能导致：
+- Renderbuffer无法被后续Pass采样
+- Texture不支持MSAA（GLES限制）
+- 资源分配效率低下
+
+### 本文档解决的问题
+
+本文档系统对比OpenGL ES四种核心对象：
+- **Texture2D**：2D纹理对象
+- **Texture Layer**：Array Texture的单层
+- **Renderbuffer**：渲染缓冲对象
+- **Framebuffer**：帧缓冲对象（FBO）
+
+通过特性对比和使用场景分析，指导开发者正确选择和使用渲染对象。
+
+---
+
+## 核心概念
+
+### Texture（纹理）
+
+**Texture** 是存储图像数据的GPU对象，主要特性：
+
+| 特性 | 说明 |
+|------|------|
+| **Shader可采样** | 通过sampler2D等uniform在Shader中读取 |
+| **可作为渲染目标** | 绑定到Framebuffer的Color Attachment |
+| **支持Mipmap** | 多级分辨率，用于距离衰减 |
+| **格式灵活** | RGBA8、RGBA16F、R32F等多种格式 |
+
+Texture适用于需要后续Pass采样的渲染输出（如后期处理输入、材质纹理）。
+
+### Renderbuffer
+
+**Renderbuffer** 是专为渲染目标设计的GPU存储对象：
+
+| 特性 | 说明 |
+|------|------|
+| **Shader不可采样** | 无法在Shader中读取数据 |
+| **可作为渲染目标** | 绑定到Framebuffer Attachment |
+| **支持MSAA** | GLES核心支持多采样Renderbuffer |
+| **内存布局优化** | Tile-Based GPU可能更高效 |
+
+Renderbuffer适用于不需要后续采样的渲染输出（如深度附件、MSAA颜色缓冲）。
+
+### Array Texture（纹理数组）
+
+**Array Texture** 是多层数据共享存储的纹理类型：
+
+- 所有层共享相同尺寸和格式
+- 单层可独立绑定到Framebuffer
+- Shader可采样指定层（sampler2DArray + layer索引）
+
+Array Texture适用于多视图渲染（VR）、级联阴影、动态渲染目标池等场景。
+
+### Framebuffer（FBO）
+
+**Framebuffer** 是渲染目标的容器对象：
+
+- 不存储数据，仅引用Texture或Renderbuffer
+- 绑定Color/Depth/Stencil多种Attachment
+- 支持多颜色附件（MRT）
+- 离屏渲染的必要载体
+
+Framebuffer是OpenGL ES渲染管线的核心枢纽。
+
+### Attachment类型
+
+Framebuffer可绑定以下Attachment：
+
+| Attachment类型 | 用途 | 常用格式 |
+|---------------|------|---------|
+| **Color Attachment** | 存储颜色输出 | RGBA8、RGBA16F |
+| **Depth Attachment** | 存储深度值 | DEPTH24、DEPTH32F |
+| **Stencil Attachment** | 存储模板值 | STENCIL8 |
+| **Depth-Stencil Attachment** | 深度+模板组合 | DEPTH24_STENCIL8 |
+
+Attachment的选择决定渲染输出的内容和格式。
+
+---
 
 ## 概述
 
@@ -516,7 +618,7 @@ void GpuImageGLES::CreateImageImpl()
     glGenTextures(1, &plat_.image);
     glBindTexture(GL_TEXTURE_2D, plat_.image);
     glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, type, NULL);
-    
+
     // 作为渲染目标
     if (usageFlags & CORE_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, plat_.image, 0);
@@ -534,7 +636,7 @@ if (desc_.sampleCountFlags > 1) {
     glGenRenderbuffers(1, &plat_.renderbuffer);
     glBindRenderbuffer(GL_RENDERBUFFER, plat_.renderbuffer);
     glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, format, width, height);
-    
+
     // 绑定到Framebuffer
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, plat_.renderbuffer);
 }
@@ -561,7 +663,7 @@ void NodeContextPoolManagerGLES::CreateFramebuffer()
 {
     glGenFramebuffers(1, &fbo_);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
-    
+
     // 绑定多个附件
     for (auto& attachment : attachments_) {
         if (attachment.isTexture) {
@@ -570,7 +672,7 @@ void NodeContextPoolManagerGLES::CreateFramebuffer()
             glFramebufferRenderbuffer(...);
         }
     }
-    
+
     glCheckFramebufferStatus(GL_FRAMEBUFFER);
 }
 ```
@@ -624,7 +726,7 @@ switch (status) {
        glBindFramebuffer(GL_FRAMEBUFFER, pass.fbo);
        RenderPass(pass);
    }
-   
+
    // ✅ 合理规划，减少切换
    glBindFramebuffer(GL_FRAMEBUFFER, mainFbo);
    RenderAllPasses(mainFbo);
@@ -634,7 +736,7 @@ switch (status) {
    ```cpp
    // ✅ 深度附件：如果不需要后续采样，使用Renderbuffer
    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depthRB);
-   
+
    // ✅ MSAA颜色附件：使用Renderbuffer
    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, msaaRB);
    ```
@@ -684,7 +786,7 @@ switch (status) {
 
 ---
 
-**文档版本**: 1.0  
-**创建日期**: 2026-05-15  
-**作者**: Claude Analysis  
+**文档版本**: 1.0
+**创建日期**: 2026-05-15
+**作者**: Claude Analysis
 **状态**: 完成

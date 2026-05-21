@@ -1,4 +1,202 @@
-# 切换RenderNodeGraph时PSO缓存丢失原因分析
+# PSO缓存丢失原因分析
+
+## 背景与问题引入
+
+### PSO缓存的作用
+
+**PSO缓存** 是渲染引擎优化性能的核心机制：
+
+- **避免重复创建**：相同配置的PSO复用，减少编译开销
+- **降低首帧延迟**：首次创建后缓存，后续渲染快速获取
+- **减少GPU驱动负担**：减少Pipeline编译请求
+
+PSO创建涉及Shader编译、状态配置、驱动验证，开销较大。缓存机制对渲染性能至关重要。
+
+### 问题现象
+
+在LumeRender中，切换RenderNodeGraph（如从普通渲染切换到WBOIT）时，观察到：
+
+- 首帧渲染耗时显著增加
+- PSO需要重新创建而非复用已有缓存
+- 切换后再切回，缓存仍未保留
+
+此现象导致频繁切换场景时性能下降，用户体验受影响。
+
+### 问题重要性
+
+PSO缓存丢失的影响：
+
+| 影响维度 | 具体表现 |
+|---------|---------|
+| **首帧延迟** | 切换后首帧渲染耗时增加数百毫秒 |
+| **用户体验** | 场景切换时出现卡顿或黑屏闪烁 |
+| **资源浪费** | 相同PSO重复创建，GPU编译资源浪费 |
+| **调试困难** | 难以区分是缓存失效还是配置错误 |
+
+理解缓存丢失的根本原因，有助于评估性能影响和设计解决方案。
+
+### 本文档解决的问题
+
+本文档深入分析LumeRender框架中PSO缓存丢失的技术原因：
+
+- PSO缓存的数据结构和作用域
+- RenderNodeGraph销毁流程对缓存的影响
+- Vulkan RenderPass兼容性限制
+- 架构设计理念与权衡
+
+---
+
+## 核心概念
+
+### RenderNodeGraph
+
+**RenderNodeGraph** 是LumeRender的渲染流程定义，采用DAG（有向无环图）结构：
+
+- 定义渲染节点（RenderNode）的执行顺序
+- 配置渲染资源（Attachment、Shader、Material）
+- 组织渲染Pass和Subpass
+
+不同渲染模式对应不同RenderNodeGraph：
+- **普通渲染**：单Color Attachment，标准Forward渲染
+- **WBOIT**：双Color Attachment（accumulation + revealage），透明物体排序无关渲染
+
+切换渲染模式即切换RenderNodeGraph实例。
+
+### RenderNodeContextData
+
+**RenderNodeContextData** 是RenderNode的运行时上下文数据容器：
+
+| 成员 | 类型 | 作用 |
+|------|------|------|
+| `renderCommandList` | RenderCommandList | 渲染命令队列 |
+| `renderBarrierList` | RenderBarrierList | 资源屏障管理 |
+| `nodeContextPsoMgr` | NodeContextPsoManager | **PSO创建和缓存管理** |
+| `nodeContextPoolMgr` | NodeContextPoolManager | GPU资源池管理 |
+
+关键：`nodeContextPsoMgr`存储PSO缓存，与RenderNodeContextData强绑定。
+
+### NodeContextPsoManager
+
+**NodeContextPsoManager** 是PSO生命周期管理器：
+
+- **创建PSO**：根据Shader、GraphicsState等参数创建Pipeline
+- **缓存PSO**：存储已创建的PSO，通过哈希Key查找
+- **销毁PSO**：RenderNodeGraph销毁时清理所有PSO
+
+缓存数据结构：
+
+```
+GraphicsPipelineStateCache:
+  ├── hashToHandle: unordered_map<uint64_t, RenderHandle>  // 哈希→PSO句柄映射
+  ├── psoCreationData: vector<GraphicsPipelineStateCreationData>  // 创建参数
+  └── pipelineStateObjects: unordered_map<uint64_t, PipelineStateObjectEntry>  // PSO对象
+```
+
+### PSO缓存的哈希Key
+
+PSO缓存通过哈希Key识别唯一配置：
+
+| 平台 | 哈希计算方式 | 包含参数 |
+|------|------------|---------|
+| **Vulkan** | `Hash(handle.id, psoStateHash)` | Shader + GraphicsState + **RenderPass状态** |
+| **GL/GLES** | `handle.id` | 仅Shader句柄 |
+
+Vulkan平台的哈希包含RenderPass配置，因为Vulkan要求PSO与RenderPass兼容。
+
+### RenderPass兼容性
+
+**RenderPass兼容性** 是Vulkan的核心限制：
+
+Vulkan规范要求Graphics Pipeline必须与创建时的RenderPass兼容。兼容条件包括：
+- Attachment数量相同
+- Attachment格式相同
+- 采样数（Sample Count）相同
+
+WBOIT与普通渲染的RenderPass配置不同：
+
+| 渲染模式 | Color Attachments | 格式 | Sample Count |
+|---------|------------------|------|--------------|
+| 普通渲染 | 1个 | RGBA8/RGBA16F | 1x或4x |
+| WBOIT | 2个（acc+rev） | RGBA16F + R16F | 1x或4x |
+
+由于RenderPass不兼容，相同Shader在不同渲染模式下需要不同的PSO。
+
+### PSO缓存丢失流程
+
+```
+切换RenderNodeGraph时PSO缓存丢失流程:
+
+┌──────────────────────────────────────────────────┐
+│ 初始状态: 普通渲染RenderNodeGraph                 │
+├──────────────────────────────────────────────────┤
+│ RenderNodeGraphNodeStore                         │
+│   └─ RenderNodeContextData[0]                    │
+│        └─ NodeContextPsoManager                  │
+│             └─ GraphicsPipelineStateCache        │ 
+│                  └─ hashToHandle (PSO缓存)       │
+│                                                  │
+│   └─ RenderNodeContextData[1]                    │
+│        └─ NodeContextPsoManager                  │
+│             └─ GraphicsPipelineStateCache        │
+│                  └─ hashToHandle (PSO缓存)       │
+└──────────────────────────────────────────────────┘
+                      │
+                      │ 用户切换到WBOIT
+                      ▼
+┌────────────────────────────────────────────────────┐
+│ 步骤1: 销毁旧RenderNodeGraph                        │
+├────────────────────────────────────────────────────┤
+│ RenderNodeGraphManager::PendingDestroy()           │
+│   └─ move(renderNodeContextData)                   │
+│       └─► 移动到pendingRenderNodeGraphDestructions_ │
+│   └─ nodeGraphData_[index] = nullptr               │
+│   └─ nodeGraphHandles_[index] = {}                 │
+│                                                    │
+│ PSO缓存被移动到销毁队列                              │
+└────────────────────────────────────────────────────┘
+                      │
+                      │ 等待N帧
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 步骤2: 延迟销毁                                   │
+├──────────────────────────────────────────────────┤
+│ HandlePendingAllocations()                       │
+│   └─ 检查frameIndex是否超时                       │
+│   └─ erase(pendingRenderNodeGraphDestructions_)  │
+│                                                  │
+│ RenderNodeContextData析构                        │
+│   └─► NodeContextPsoManager析构                  │
+│   └─► GraphicsPipelineStateCache析构             │
+│   └─► hashToHandle销毁 (PSO缓存永久消失)          │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 步骤3: 创建新RenderNodeGraph                      │
+├──────────────────────────────────────────────────┤
+│ RenderNodeGraphManager::Create()                 │
+│   └─ 创建新的RenderNodeGraphNodeStore             │
+│   └─ 创建新的renderNodeContextData数组            │
+│   └─ 创建新的NodeContextPsoManager (空缓存)       │
+│                                                  │
+│ PSO缓存为空, 需要重新创建                          │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 步骤4: 首次渲染                                   │
+├──────────────────────────────────────────────────┤
+│ RenderNode::InitNode()                           │
+│   └─► GetGraphicsPsoHandle()                     │
+│   └─► hashToHandle.find(hash)                    │
+│       └─► 失败 (空缓存)                           │
+│   └─► 创建新PSO并缓存                             │
+│                                                  │
+│ 首帧耗时增加 (PSO重新创建)                         │
+└──────────────────────────────────────────────────┘
+```
+
+---
 
 ## 概述
 
@@ -48,13 +246,13 @@ RenderNodeGraphNodeStore
 
 ```cpp
 // node_context_pso_manager.cpp:62-77
-uint64_t HashComputeShader(const RenderHandle shaderHandle, 
+uint64_t HashComputeShader(const RenderHandle shaderHandle,
                            const ShaderSpecializationConstantDataView& shaderSpecialization)
 {
     return Hash(shaderHandle.id, shaderSpecialization);
 }
 
-uint64_t HashGraphicsShader(const RenderHandle shaderHandle, 
+uint64_t HashGraphicsShader(const RenderHandle shaderHandle,
                             const RenderHandle graphicsStateHandle,
                             const array_view<const DynamicStateEnum> dynamicStates,
                             const ShaderSpecializationConstantDataView& shaderSpecialization,
@@ -64,7 +262,7 @@ uint64_t HashGraphicsShader(const RenderHandle shaderHandle,
     for (const auto& ref : dynamicStates) {
         HashCombine(hash, static_cast<uint64_t>(ref));
     }
-    return Hash(hash, shaderHandle.id, graphicsStateHandle.id, 
+    return Hash(hash, shaderHandle.id, graphicsStateHandle.id,
                 shaderSpecialization, customGraphicsStateHash);
 }
 ```
@@ -76,12 +274,12 @@ uint64_t HashGraphicsShader(const RenderHandle shaderHandle,
 RenderHandle NodeContextPsoManager::GetGraphicsPsoHandleImpl(...)
 {
     auto& cache = graphicsPipelineStateCache_;
-    const uint64_t hash = HashGraphicsShader(shader, graphicsState, 
+    const uint64_t hash = HashGraphicsShader(shader, graphicsState,
                                               dynamicStates, shaderSpecialization, cGfxHash);
-    
+
     const auto iter = cache.hashToHandle.find(hash);
     const bool needsNewPso = (iter == cache.hashToHandle.cend());
-    
+
     if (needsNewPso) {
         // 创建新PSO并缓存
         psoHandle = RenderHandleUtil::CreateHandle(...);
@@ -91,7 +289,7 @@ RenderHandle NodeContextPsoManager::GetGraphicsPsoHandleImpl(...)
         // 从缓存获取
         psoHandle = iter->second;
     }
-    
+
     return psoHandle;
 }
 ```
@@ -126,14 +324,14 @@ void RenderNodeGraphManager::PendingDestroy(const RenderHandle handle)
 {
     const uint32_t index = RenderHandleUtil::GetIndexPart(handle);
     // ...
-    
+
     // 销毁所有数据，但保留RenderNodeContextData（包含command buffers和PSO缓存）
     // 将RenderNodeContextData添加到销毁队列
     pendingRenderNodeGraphDestructions_.push_back(PendingRenderNodeGraphDestruction {
-        device_.GetFrameCount(), 
+        device_.GetFrameCount(),
         move(nodeGraphData_[index]->renderNodeContextData)  // ← PSO缓存在这里被移动
     });
-    
+
     nodeGraphData_[index] = nullptr;  // 清空节点存储
     nodeGraphHandles_[index] = {};    // 清空handle
 }
@@ -150,18 +348,18 @@ void RenderNodeGraphManager::HandlePendingAllocations()
     const uint64_t frameCount = device_.GetFrameCount();
     const uint64_t minAge = static_cast<uint64_t>(device_.GetCommandBufferingCount()) + 1;
     const uint64_t ageLimit = (frameCount < minAge) ? 0 : (frameCount - minAge);
-    
+
     // 多帧延迟销毁（等待GPU使用完成）
     if (!pendingRenderNodeGraphDestructions_.empty()) {
         const auto oldResources = std::partition(
-            pendingRenderNodeGraphDestructions_.begin(), 
+            pendingRenderNodeGraphDestructions_.begin(),
             pendingRenderNodeGraphDestructions_.end(),
-            [ageLimit](const auto& destructionQueue) { 
-                return destructionQueue.frameIndex >= ageLimit; 
+            [ageLimit](const auto& destructionQueue) {
+                return destructionQueue.frameIndex >= ageLimit;
             });
-        
+
         // 销毁超时的资源（包括PSO缓存）
-        pendingRenderNodeGraphDestructions_.erase(oldResources, 
+        pendingRenderNodeGraphDestructions_.erase(oldResources,
                                                    pendingRenderNodeGraphDestructions_.end());
     }
 }
@@ -185,7 +383,7 @@ void RenderNodeGraphManager::HandlePendingAllocations()
     ↓ RenderNodeGraphManager::PendingDestroy()
     ↓ move(nodeGraphData_[index]->renderNodeContextData)
     ↓ renderNodeContextData被移动到pendingRenderNodeGraphDestructions_
-    ↓ 
+    ↓
     ↓ [延迟N帧等待GPU完成]
     ↓
     ↓ RenderNodeGraphManager::HandlePendingAllocations()
@@ -203,7 +401,7 @@ void RenderNodeGraphManager::HandlePendingAllocations()
     ↓ 创建新的NodeContextPsoManager（空缓存）
     ↓ renderer::InitializeRenderNodeContextData()
     ↓ nodeContextData.nodeContextPsoMgr = make_unique<NodeContextPsoManager>()
-    ↓ 
+    ↓
     ↓ [渲染循环]
     ↓
     ↓ RenderNode::InitNode()
@@ -246,7 +444,7 @@ struct RenderNodeContextData {
 
 ```cpp
 // node_context_pso_manager.cpp:444-445
-const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN) 
+const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN)
     ? Hash(handle.id, psoStateHash)  // ← Vulkan需要包含RenderPass状态
     : handle.id;                      // ← GL/GLES只需要shader handle
 ```
@@ -407,8 +605,8 @@ virtual void InitNode(IRenderNodeContextManager& renderNodeContextMgr) = 0;
 ```cpp
 // node_context_pso_manager.cpp:444-445
 // 即使是GL/GLES，也选择了RenderNode级别的缓存设计
-const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN) 
-    ? Hash(handle.id, psoStateHash) 
+const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN)
+    ? Hash(handle.id, psoStateHash)
     : handle.id;  // ← GL/GLES也用RenderNode级别缓存
 ```
 
@@ -508,7 +706,7 @@ const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN)
 
 ---
 
-**文档版本**: 1.0  
-**创建日期**: 2026-05-15  
-**作者**: Claude Analysis  
+**文档版本**: 1.0
+**创建日期**: 2026-05-15
+**作者**: Claude Analysis
 **状态**: 完成

@@ -1,4 +1,131 @@
-# sampleCountFlags 详解
+# MSAA采样数配置详解
+
+## 背景与问题引入
+
+### MSAA采样数概念
+
+**MSAA采样数（Sample Count）** 定义每个像素内用于抗锯齿计算的采样点数量。采样数越高，边缘平滑效果越好，但内存占用和计算开销也随之增加。
+
+采样数通常以2的幂次表示：1x（无MSAA）、2x、4x、8x、16x等。
+
+### sampleCountFlags的作用
+
+LumeRender使用 **sampleCountFlags** 参数控制MSAA采样数配置：
+
+- **图像创建**：纹理/Renderbuffer的采样数由sampleCountFlags指定
+- **RenderPass配置**：Attachment的MSAA设置
+- **渲染管线**：Pipeline的multisample state
+
+sampleCountFlags是位掩码格式，支持多选（如 `2_BIT | 4_BIT` 表示设备支持2x和4x）。
+
+### 采样数与性能的关系
+
+MSAA的性能影响主要体现在：
+
+| 影响因素 | 说明 |
+|---------|------|
+| **内存占用** | MSAA纹理存储N倍数据（N=采样数） |
+| **带宽消耗** | 渲染和解析过程需读写更多数据 |
+| **计算开销** | 深度/覆盖率测试次数增加 |
+
+移动平台（Tile-Based GPU）通常推荐2x或4x MSAA，更高采样数可能导致性能显著下降。
+
+### 设备能力限制
+
+不同GPU支持的采样数上限不同：
+
+- **桌面GPU**：通常支持最高8x或16x
+- **移动GPU**：通常最高支持4x，部分设备仅支持2x
+
+设置超出设备能力的采样数会导致创建失败或运行时错误。
+
+### 本文档解决的问题
+
+本文档详细解析sampleCountFlags的定义、配置方式、与渲染流程的关系，以及如何正确设置MSAA采样数。
+
+---
+
+## 核心概念
+
+### SampleCountFlagBits定义
+
+sampleCountFlags采用位掩码格式，每个bit代表一种采样数能力：
+
+| 位值 | 采样数 | 说明 |
+|------|--------|------|
+| 0x01 | 1x | 无MSAA，基准状态 |
+| 0x02 | 2x | 最低MSAA级别 |
+| 0x04 | 4x | 移动平台推荐值 |
+| 0x08 | 8x | 桌面平台常用值 |
+| 0x10 | 16x | 高质量渲染 |
+| 0x20 | 32x | 极高质量，罕见支持 |
+| 0x40 | 64x | 实际不可用 |
+
+位掩码设计支持查询设备支持能力（多bit组合）和指定具体采样数（单bit值）。
+
+### 请求值与支持值
+
+sampleCountFlags有两种使用模式：
+
+| 模式 | 用途 | 值格式 |
+|------|------|--------|
+| **请求值** | 创建图像/Renderbuffer时指定采样数 | 单bit值（如 `4_BIT`） |
+| **支持值** | 查询设备支持的采样数范围 | 多bit组合（如 `1_BIT \| 2_BIT \| 4_BIT`） |
+
+创建时需确保请求值在设备支持范围内。
+
+### MSAA渲染流程中的采样数配置
+
+采样数影响多个渲染环节：
+
+```
+MSAA渲染流程：
+
+┌──────────────────────────────────────────────────┐
+│ 1. 图像创建                                      │
+├──────────────────────────────────────────────────┤
+│ GpuImageDesc.sampleCountFlags                    │
+│   └─► 创建MSAA纹理 (N samples/pixel)            │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 2. RenderPass配置                                │
+├──────────────────────────────────────────────────┤
+│ Attachment.sampleCount                           │
+│   └─► 设置RenderPass的MSAA配置                 │
+│       (必须与图像一致)                           │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 3. Pipeline配置                                  │
+├──────────────────────────────────────────────────┤
+│ multisampleState.rasterizationSamples            │
+│   └─► GPU光栅化配置 (使用N采样进行光栅化)       │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 4. 渲染执行                                      │
+├──────────────────────────────────────────────────┤
+│ GPU渲染                                          │
+│   └─► 每像素存储N个采样值                       │
+│       (深度测试在每个采样点独立执行)             │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 5. 解析Pass                                      │
+├──────────────────────────────────────────────────┤
+│ MSAA纹理 ──► Resolve ──► 单采样纹理             │
+│   └─► 平均所有采样值, 用于后续Pass或显示        │
+└──────────────────────────────────────────────────┘
+```
+
+各环节采样数必须一致，否则导致渲染错误。
+
+---
 
 ## 概述
 
@@ -15,22 +142,22 @@
 enum SampleCountFlagBits : uint32_t {
     /** 1 bit - 无MSAA */
     CORE_SAMPLE_COUNT_1_BIT = 0x00000001,
-    
+
     /** 2 bit - 2x MSAA */
     CORE_SAMPLE_COUNT_2_BIT = 0x00000002,
-    
+
     /** 4 bit - 4x MSAA */
     CORE_SAMPLE_COUNT_4_BIT = 0x00000004,
-    
+
     /** 8 bit - 8x MSAA */
     CORE_SAMPLE_COUNT_8_BIT = 0x00000008,
-    
+
     /** 16 bit - 16x MSAA */
     CORE_SAMPLE_COUNT_16_BIT = 0x00000010,
-    
+
     /** 32 bit - 32x MSAA */
     CORE_SAMPLE_COUNT_32_BIT = 0x00000020,
-    
+
     /** 64 bit - 64x MSAA */
     CORE_SAMPLE_COUNT_64_BIT = 0x00000040,
 };
@@ -113,7 +240,7 @@ void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImage
 {
     const uint32_t sampleCount = ConvertSampleCountFlags(desc.sampleCountFlags);
     glGenTextures(1, &plat.image);
-    
+
     const Math::UVec2 size2D { desc.width, desc.height };
     switch (desc.imageViewType) {
         case CORE_IMAGE_VIEW_TYPE_2D: {
@@ -121,14 +248,14 @@ void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImage
                 // 创建多重采样纹理
                 plat.type = GL_TEXTURE_2D_MULTISAMPLE;
                 device.TexStorage2DMultisample(
-                    plat.image, plat.type, sampleCount, 
+                    plat.image, plat.type, sampleCount,
                     plat.internalFormat, size2D, true
                 );
             } else {
                 // 创建普通纹理
                 plat.type = GL_TEXTURE_2D;
                 device.TexStorage2D(
-                    plat.image, plat.type, desc.mipCount, 
+                    plat.image, plat.type, desc.mipCount,
                     plat.internalFormat, size2D
                 );
             }
@@ -262,13 +389,13 @@ constexpr MemoryPropertyFlags MSAA_MEMORY_FLAGS =
 
 // 根据采样数量选择不同的标志
 const ImageUsageFlags usageFlags =
-    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT) 
-        ? MSAA_USAGE_FLAGS 
+    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT)
+        ? MSAA_USAGE_FLAGS
         : USAGE_FLAGS;
 
 const MemoryPropertyFlags memoryFlags =
-    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT) 
-        ? MSAA_MEMORY_FLAGS 
+    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT)
+        ? MSAA_MEMORY_FLAGS
         : MEMORY_FLAGS;
 ```
 
@@ -307,13 +434,66 @@ const MemoryPropertyFlags memoryFlags =
 
 ### 填充率（Fill Rate）
 
+#### 什么是填充率？
+
+**填充率（Fill Rate）** 是GPU渲染能力的核心指标，表示GPU每秒能够写入的像素数量。填充率直接影响GPU处理复杂场景和高分辨率渲染的能力。
+
+**基础填充率** 是GPU在无MSAA状态下的像素写入能力，由GPU硬件规格决定。不同GPU的基础填充率差异显著：
+
+| GPU类型 | 基础填充率范围 | 说明 |
+|---------|---------------|------|
+| 高端桌面GPU | 100-200 GPixels/s | 如RTX 4090，支持高分辨率+高MSAA |
+| 中端桌面GPU | 30-80 GPixels/s | 如RTX 3060，平衡性能 |
+| 移动高端GPU | 5-15 GPixels/s | 如Adreno 650，受限功耗 |
+| 移动低端GPU | 1-5 GPixels/s | 如Mali G52，严格功耗限制 |
+
+#### 填充率计算公式
+
 ```
 有效填充率 = 基础填充率 / 采样数量
 
-示例：
-- 4x MSAA: 有效填充率降低为 25%
-- 8x MSAA: 有效填充率降低为 12.5%
+示例（基础填充率 = 50 GPixels/s）：
+- 1x MSAA: 有效填充率 = 50 GPixels/s（无影响）
+- 2x MSAA: 有效填充率 = 25 GPixels/s（降低50%）
+- 4x MSAA: 有效填充率 = 12.5 GPixels/s（降低75%）
+- 8x MSAA: 有效填充率 = 6.25 GPixels/s（降低87.5%）
 ```
+
+#### 填充率影响什么？
+
+填充率不足会导致以下问题：
+
+| 影响领域 | 具体表现 | 后果 |
+|---------|---------|------|
+| **帧率下降** | GPU无法在目标帧时间内完成所有像素写入 | 游戏卡顿、帧率不稳定 |
+| **分辨率限制** | 高分辨率+高MSAA超出填充率容量 | 必须降低分辨率或MSAA级别 |
+| **复杂场景瓶颈** | 大量几何覆盖像素，填充需求激增 | 场景复杂度受限 |
+| **过度绘制惩罚** | 多层透明物体叠加，同一像素多次填充 | 透明物体性能急剧下降 |
+| **带宽压力** | 填充率需求增加，内存读写带宽同步增加 | 移动平台带宽瓶颈 |
+
+#### 填充率与分辨率的关系
+
+```
+填充需求 = 分辨率 × 过度绘制系数 × MSAA采样数
+
+示例（过度绘制系数 = 2.0，即平均每像素被覆盖2次）：
+- 1080p (1920×1080) + 4x MSAA:
+  填充需求 = 2,073,600 × 2.0 × 4 = 16.6 MPixels/帧
+  
+- 4K (3840×2160) + 4x MSAA:
+  填充需求 = 8,294,400 × 2.0 × 4 = 66.4 MPixels/帧（4倍增长）
+```
+
+高分辨率场景下，MSAA的填充率开销更加显著，移动平台需谨慎权衡。
+
+#### 性能瓶颈判断
+
+当渲染性能下降时，可通过以下指标判断是否为填充率瓶颈：
+
+- **GPU时间分析**：fragment shader执行时间占比过高
+- **带宽监控**：内存读写带宽接近或超出设备上限
+- **分辨率敏感**：降低分辨率后帧率显著提升
+- **MSAA敏感**：关闭MSAA后帧率显著提升
 
 ---
 
@@ -413,7 +593,7 @@ postProcessPass.sampleCountFlags = CORE_SAMPLE_COUNT_1_BIT;
 GpuImageDesc msaaDesc {
     // ...
     sampleCountFlags = CORE_SAMPLE_COUNT_4_BIT,
-    memoryPropertyFlags = CORE_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | 
+    memoryPropertyFlags = CORE_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
                           CORE_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT
 };
 ```

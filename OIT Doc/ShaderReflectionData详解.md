@@ -1,4 +1,4 @@
-# Shader Reflection Data生成与错误分析
+# ShaderReflectionData详解
 
 ## 概述
 
@@ -70,7 +70,7 @@ ShaderLoader::ShaderFile ShaderLoader::LoadShaderFile(const string_view shader, 
     }
     if (shaderFile) {
         info.data = ReadFile(*shaderFile, shader);
-        
+
         // GL backend 需要额外的 LSB reflection data
         if (IFile::Ptr reflectionFile = fileManager_.OpenFile(shader + ".lsb"); reflectionFile) {
             info.reflectionData = ReadFile(*reflectionFile, shader + ".lsb");
@@ -236,7 +236,7 @@ string ShaderModuleGLES::GetGLSL(const ShaderSpecializationConstantDataView& spe
 
 // spirv_cross_helpers_gles.cpp:127-135
 string Specialize(ShaderStageFlags mask, const string_view shaderTemplate,
-    const array_view<const ShaderSpecialization::Constant> info, 
+    const array_view<const ShaderSpecialization::Constant> info,
     const ShaderSpecializationConstantDataView& data)
 {
     // 注入 SPIRV_CROSS_CONSTANT_ID_* defines
@@ -464,7 +464,7 @@ done
 
 ---
 
-**文档版本**: 1.1  
-**创建日期**: 2026-05-18  
-**更新日期**: 2026-05-18  
+**文档版本**: 1.1
+**创建日期**: 2026-05-18
+**更新日期**: 2026-05-18
 **状态**: 已更新 - 新增 Vulkan/GL shader 格式差异与生成流程详解

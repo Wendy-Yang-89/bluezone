@@ -1,4 +1,161 @@
-# ownBaseShaderHandle 与 addBaseShaderHandle 的区别
+# Shader变体继承机制详解
+
+## 胃景与问题引入
+
+### Shader变体概念
+
+**Shader变体（Shader Variant）** 是同一Shader的不同配置版本：
+
+- 支持同一Shader适应不同渲染场景
+- 避免为每种场景创建独立Shader文件
+- 通过参数组合实现功能复用
+
+典型变体场景：
+- 不同材质类型（Opaque/Translucent）
+- 不同渲染特性（AlphaTest/DoubleSided）
+- 不同平台优化（Mobile/Desktop）
+
+### 变体继承的需求
+
+复杂渲染场景需要Shader变体的继承和组合：
+
+| 需求 | 传统方案问题 |
+|------|-------------|
+| **变体共享** | 每个Shader独立配置所有变体，重复定义 |
+| **功能扩展** | 新增变体需修改基础Shader配置 |
+| **跨Shader组合** | 无法将变体添加到其他Shader |
+
+继承机制允许变体从基础Shader继承或跨Shader共享，简化配置管理。
+
+### 两种继承机制
+
+LumeRender提供两种变体继承机制：
+
+| 机制 | 字段 | 作用 |
+|------|------|------|
+| **自身继承** | `ownBaseShaderHandle` | 指向自身的基础Shader，建立内部变体树 |
+| **外部添加** | `addBaseShaderHandle` | 指向外部Shader，将自身作为变体添加 |
+
+两种机制配合使用，实现灵活的变体组合。
+
+### 本文档解决的问题
+
+本文档详细对比两种继承机制的定义、用途和查找优先级：
+
+- 字段含义和数据类型
+- 使用场景和功能差异
+- `GetShaderHandle` 中的查找逻辑
+
+---
+
+## 核心概念
+
+### BaseShaderHandle
+
+**BaseShaderHandle** 是Shader变体的继承链接：
+
+- 指向一个基础Shader的RenderHandle
+- 用于变体查找时的回溯匹配
+- 支持多级继承链
+
+BaseShaderHandle建立变体与基础Shader的关联关系。
+
+### ownBaseShaderHandle
+
+**ownBaseShaderHandle** 指向Shader自身的基础版本：
+
+```
+Shader_A (基础版)
+  ├── ownBaseShaderHandle → Shader_A (指向自身)
+  ├── Variant_1
+  └── Variant_2
+
+Shader_B (扩展版，继承Shader_A)
+  ├── ownBaseShaderHandle → Shader_A (指向外部基础)
+  └── Variant_3
+```
+
+用途：
+- 同一Shader家族的变体关联
+- 变体查找时回溯到基础Shader
+
+### addBaseShaderHandle
+
+**addBaseShaderHandle** 将当前Shader作为变体添加到外部Shader：
+
+```
+Shader_C (独立Shader)
+  ├── addBaseShaderHandle → Shader_A
+  └── 作为Shader_A的变体被查找
+
+查找Shader_A的变体时，会包含Shader_C
+```
+
+用途：
+- 跨Shader的变体共享
+- 无需修改基础Shader配置即可添加变体
+
+### 查找优先级
+
+`GetShaderHandle` 查找变体的顺序：
+
+1. **直接匹配**：检查Shader自身的RenderSlot映射
+2. **ownBaseShaderHandle回溯**：查找自身继承链
+3. **addBaseShaderHandle扩展**：查找外部添加的变体
+
+优先级：`ownBaseShaderHandle` > `addBaseShaderHandle`
+
+### 变体查找流程
+
+```
+GetShaderHandle 变体查找流程:
+
+┌──────────────────────────────────────────────────┐
+│ 输入: ShaderHandle + RenderSlotId                │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ Step 1: 直接匹配                                  │
+├──────────────────────────────────────────────────┤
+│ 检查Shader自身的RenderSlot映射                    │
+│ if (shader.renderSlotId == targetRenderSlotId)   │
+│   └─► 返回: Shader自身句柄                        │
+│                                                  │
+│ 未匹配则继续                                      │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ Step 2: ownBaseShaderHandle回溯                  │
+├──────────────────────────────────────────────────┤
+│ if (ownBaseShaderHandle有效)                     │
+│   └─► GetBaseShaderMatchedSlotHandle()           │
+│   └─► 查找自身继承链的RenderSlot匹配               │
+│   └─► 找到匹配 → 返回: 变体句柄                    │
+│                                                  │
+│ 未匹配则继续                                      │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ Step 3: addBaseShaderHandle扩展                  │
+├──────────────────────────────────────────────────┤
+│ if (addBaseShaderHandle有效)                     │
+│   └─► GetBaseShaderMatchedSlotHandle()           │
+│   └─► 查找外部添加的变体RenderSlot匹配             │
+│   └─► 找到匹配 → 返回: 外部变体句柄                │
+│                                                  │
+│ 未匹配则继续                                      │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 返回: 空句柄 (未找到匹配变体)                      │
+└──────────────────────────────────────────────────┘
+```
+
+---
 
 ## 定义
 
@@ -137,9 +294,9 @@ core3d_dm_fw.shader (基础Forward Shader)
     └── 变体: core3d_dm_fw_lloit.shader
             ├── ownBaseShaderHandle = core3d_dm_fw
             └── 渲染透明物体 (LLOIT算法)
-    
+
     └── 变体: core3d_dm_fw_wboit.shader
-            ├── ownBaseShaderHandle = core3d_dm_fw  
+            ├── ownBaseShaderHandle = core3d_dm_fw
             └── 渲染透明物体 (WBOIT算法)
 ```
 
@@ -156,7 +313,7 @@ core3d_dm_fw.shader (基础Forward Shader)
 // GetShaderHandle查找逻辑
 if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
     slotHandle = GetBaseShaderMatchedSlotHandle(
-        hashToShaderVariant_, computeShaderMappings_.clientData, 
+        hashToShaderVariant_, computeShaderMappings_.clientData,
         ownBaseShaderHandle, renderSlotId);
 }
 ```
@@ -196,27 +353,27 @@ RenderHandle ShaderManager::GetShaderHandle(
 {
     RenderHandle ownBaseShaderHandle;
     RenderHandle addBaseShaderHandle;
-    
+
     // 获取shader的ownBaseShaderHandle
     if (auto ref = shaderUriToShader.find(shaderPath)) {
         ownBaseShaderHandle = ref.ownBaseShaderHandle;
         addBaseShaderHandle = ref.addBaseShaderHandle;
     }
-    
+
     // 首先尝试ownBaseShaderHandle
     if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
         slotHandle = GetBaseShaderMatchedSlotHandle(
-            hashToShaderVariant_, clientData, 
+            hashToShaderVariant_, clientData,
             ownBaseShaderHandle, renderSlotId);
     }
-    
+
     // 如果未找到，尝试addBaseShaderHandle
     if (!slotHandle && RenderHandleUtil::IsValid(addBaseShaderHandle)) {
         slotHandle = GetBaseShaderMatchedSlotHandle(
-            hashToShaderVariant_, clientData, 
+            hashToShaderVariant_, clientData,
             addBaseShaderHandle, renderSlotId);
     }
-    
+
     return slotHandle;
 }
 ```
@@ -322,11 +479,11 @@ core3d_dm_fw.shader
 // 材质在多个Slot渲染
 for (auto& slot : materialRenderSlots) {
     uint32_t renderSlotId = slot.renderSlotId;
-    
+
     // ShaderManager根据不同RenderSlot返回不同Shader变体
     RenderHandle shaderHandle = shaderMgr.GetShaderHandle(
         "core3d_dm_fw", renderSlotId);
-    
+
     // RenderSlot: OPAQUE → 返回 opaque变体ShaderHandle
     // RenderSlot: DEPTH → 返回 depth变体ShaderHandle
     // RenderSlot: TRANSLUCENT → 返回 translucent变体ShaderHandle
@@ -477,7 +634,7 @@ RENDER_VALIDATION: Invalid ownBaseShaderHandle for shader: core3d_dm_fw_lloit
 
 ---
 
-**文档版本**: 1.1  
-**更新日期**: 2026-05-15  
-**作者**: Claude Analysis  
+**文档版本**: 1.1
+**更新日期**: 2026-05-15
+**作者**: Claude Analysis
 **状态**: 已补充Shader示例和代码路径

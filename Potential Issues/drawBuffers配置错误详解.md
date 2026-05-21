@@ -1,4 +1,4 @@
-# drawBuffers索引问题详细解释
+# drawBuffers配置错误详解
 
 ## 问题核心
 

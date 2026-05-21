@@ -1,4 +1,193 @@
-# RenderNodeDefaultMaterialRenderSlotOit::CreateNewPso 函数分析
+# PSO创建流程详解
+
+## 背景与问题引入
+
+### 什么是PSO？
+
+**PSO（Pipeline State Object，管线状态对象）** 是现代图形API（Vulkan、DirectX 12）的核心概念，封装了渲染管线的完整状态配置：
+
+| 状态类型 | 内容 | 示例 |
+|---------|------|------|
+| **Shader状态** | 顶点/片元/计算着色器 | ShaderModule、ShaderStage |
+| **图形状态** | 混合、深度、Stencil、光栅化 | BlendState、DepthState、RasterState |
+| **输入装配** | 顶点缓冲布局、拓扑类型 | VertexInputLayout、PrimitiveTopology |
+| **动态状态** | 可运行时修改的状态 | Viewport、Scissor、BlendConstants |
+
+PSO创建后状态不可修改（除动态状态），需销毁重建才能更改。
+
+### PSO在渲染管线中的作用
+
+PSO是渲染管线的核心配置载体：
+
+```
+渲染流程：
+  1. 创建PSO → 配置完整管线状态
+  2. 绑定PSO → GPU使用该状态渲染
+  3. 绘制调用 → 执行渲染命令
+```
+
+PSO的正确创建和绑定是渲染系统正常工作的前提。
+
+### 为什么PSO创建复杂？
+
+PSO创建涉及多个子系统协作：
+
+- **Shader系统**：查找匹配的Shader变体和GraphicsState
+- **材质系统**：根据材质标志选择渲染配置
+- **光照系统**：根据光照标志配置Shader特性
+- **相机系统**：根据相机Shader标志启用特定渲染功能
+
+各系统状态需正确组合，否则导致渲染错误或PSO创建失败。
+
+### PSO缓存问题
+
+PSO创建开销较大（Shader编译、状态验证），引擎通常采用缓存机制：
+
+- **PSO缓存**：相同配置复用已有PSO，避免重复创建
+- **缓存失效**：切换RenderNodeGraph可能导致缓存丢失
+- **性能影响**：首次渲染或缓存失效时出现卡顿
+
+理解PSO创建流程有助于排查缓存相关问题。
+
+### 本文档解决的问题
+
+本文档详细分析LumeRender中PSO创建函数 `CreateNewPso` 的实现逻辑：
+
+- 输入参数的含义和来源
+- Shader查找和GraphicsState匹配流程
+- PSO句柄的构建和返回
+- 各子系统状态的组合逻辑
+
+---
+
+## 核心概念
+
+### ShaderStateData
+
+**ShaderStateData** 是PSO创建的Shader输入参数：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `shader` | RenderHandle | Shader状态对象句柄或Material句柄 |
+| `gfxState` | RenderHandle | GraphicsState句柄（可选） |
+
+ShaderStateData指定PSO使用的Shader和图形状态。
+
+### RenderSlot
+
+**RenderSlot（渲染槽位）** 是LumeRender的资源匹配机制：
+
+- 不同渲染场景使用不同的Shader/GraphicsState变体
+- 通过RenderSlot ID查找匹配的资源
+- 例如：Opaque槽位、Transparent槽位、Shadow槽位
+
+RenderSlot实现同一Material在不同渲染场景的适配。
+
+### GraphicsState
+
+**GraphicsState** 定义GPU渲染状态配置：
+
+| 状态类别 | 配置内容 |
+|---------|---------|
+| **BlendState** | 颜色混合模式、混合因子 |
+| **DepthState** | 深度测试、深度写入、比较函数 |
+| **StencilState** | Stencil测试、操作、参考值 |
+| **RasterState** | 光栅化模式、剔除、填充模式 |
+
+GraphicsState与Shader绑定，决定GPU如何处理渲染输出。
+
+### InputAssembly
+
+**InputAssembly（输入装配）** 定义顶点数据的组织方式：
+
+- **顶点缓冲绑定**：顶点数据的内存布局
+- **顶点属性描述**：位置、法线、纹理坐标等属性的格式和偏移
+- **拓扑类型**：三角形、线段、点等几何类型
+
+InputAssembly决定GPU如何读取和解释顶点数据。
+
+### PsoAndInfo
+
+**PsoAndInfo** 是PSO创建函数的返回结构：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `psoHandle` | RenderHandle | 创建的PSO句柄 |
+| `customSetFlags` | uint64_t | 是否需要运行时自定义设置的标志 |
+
+PsoAndInfo返回PSO句柄和额外配置需求。
+
+### PSO创建流程概览
+
+```
+CreateNewPso 函数执行流程：
+
+┌──────────────────────────────────────────────────┐
+│ 输入参数                                          │
+├──────────────────────────────────────────────────┤
+│ ShaderStateData (ssd)                            │
+│ InputAssembly (ia)                               │
+│ SubmeshMaterialFlags                             │
+│ SubmeshFlags                                     │
+│ LightingFlags                                    │
+│ CameraShaderFlags                                │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 1. 获取ShaderManager                             │
+├──────────────────────────────────────────────────┤
+│ shaderMgr = renderNodeContextMgr_                │
+│               └─► GetShaderManager()             │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 2. 查找匹配Shader                                 │
+├──────────────────────────────────────────────────┤
+│ 检查ShaderState类型                               │
+│ GetShaderHandle(renderSlotId)                    │
+│   └─► 查找RenderSlot变体                          │
+│ 返回: 匹配的Shader句柄                            │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 3. 查找匹配GraphicsState                          │
+├──────────────────────────────────────────────────┤
+│ GetGraphicsStateHandleByShaderHandle()           │
+│ 验证RenderSlot ID匹配                             │
+│ 返回: 匹配的GraphicsState句柄                     │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 4. 构建PSO请求                                    │
+├──────────────────────────────────────────────────┤
+│ PipelineDesc配置                                 │
+│   └─► Shader + GraphicsState + InputAssembly     │
+│   └─► 特化常量 + 动态状态                         │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 5. 创建/获取PSO                                   │
+├──────────────────────────────────────────────────┤
+│ NodeContextPsoManager::GetGraphicsPsoHandle()    │
+│ 缓存查找: hashToHandle.find(hash)                 │
+│ 未找到: 创建新PSO并缓存                            │
+└──────────────────────────────────────────────────┘
+                      │
+                      ▼
+┌──────────────────────────────────────────────────┐
+│ 输出: PsoAndInfo                                 │
+├──────────────────────────────────────────────────┤
+│ psoHandle: PSO句柄                               │
+│ customSetFlags: 自定义设置标志                    │
+└──────────────────────────────────────────────────┘
+```
+
+---
 
 ## 函数签名
 ```cpp
@@ -57,7 +246,7 @@ if (RenderHandleUtil::GetHandleType(ssd.shader) == RenderHandleType::SHADER_STAT
 #### 逻辑分析：
 1. **类型检查**: 验证着色器句柄类型是否为着色器状态对象
 2. **显式着色器器检查**: 如果没有指定显式着色器渲染槽位，使用给定的着色器
-3. **渲染槽位变体查找**: 
+3. **渲染槽位变体查找**:
    - 调用 `shaderMgr.GetShaderHandle()` 查找匹配渲染槽位的着色器变体
    - 如果找到有效的槽位着色器，覆盖当前着色器器
 4. **优先级**: 渲染槽位变体 > 原始着色器器
@@ -139,7 +328,7 @@ const bool customIa = (ia.primitiveTopology != CORE_PRIMITIVE_TOPOLOGY_MAX_ENUM)
 ```
 
 #### 条件分析：
-1. **inverseWinding**: 
+1. **inverseWinding**:
    - 指示是否需要反转顶点绕序
    - 基于子网格标志、节点标志和相机标志计算
    - 用于处理背面剔除和双面渲染

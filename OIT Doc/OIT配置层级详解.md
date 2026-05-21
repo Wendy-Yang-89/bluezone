@@ -1,4 +1,4 @@
-# OIT（Order Independent Transparency）配置位置分析
+# OIT配置层级详解
 
 ## 概述
 
@@ -344,7 +344,7 @@ enum SceneRenderingFlagBits : uint8_t {
 enum SceneRenderingFlagBits : uint8_t {
     /* Create render node graphs automatically in RenderSystem. */
     CREATE_RNGS_BIT = (1 << 0),
-    
+
     /* Enable Order Independent Transparency for the scene. */
     ENABLE_OIT_BIT = (1 << 1),  // 新增
 };
@@ -360,10 +360,10 @@ auto sceneEntity = /* 获取场景实体 */;
 if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
     // 启用 OIT
     configHandle->renderingFlags = RenderConfigurationComponent::SceneRenderingFlagBits::ENABLE_OIT_BIT;
-    
+
     // 设置 OIT 算法类型
     configHandle->OITType = RenderConfigurationComponent::SceneOITType::WBOIT;
-    
+
     // 指定 OIT 渲染管线（可选）
     configHandle->customRenderNodeGraphFile = "assets://app/oit_rendernodegraph.json";
 }
@@ -440,7 +440,7 @@ RenderSystem (读取场景配置)
 enum SceneRenderingFlagBits : uint8_t {
     /* Create render node graphs automatically in RenderSystem. */
     CREATE_RNGS_BIT = (1 << 0),
-    
+
     /* Enable Order Independent Transparency for the scene. */
     ENABLE_OIT_BIT = (1 << 1),
 };
@@ -473,15 +473,15 @@ renderConfigManager->Create(sceneEntity);
 // 配置 OIT
 if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
     // 启用 OIT
-    configHandle->renderingFlags = 
+    configHandle->renderingFlags =
         RenderConfigurationComponent::SceneRenderingFlagBits::ENABLE_OIT_BIT;
-    
+
     // 设置 OIT 算法类型
-    configHandle->OITType = 
+    configHandle->OITType =
         RenderConfigurationComponent::SceneOITType::WBOIT;
-    
+
     // 指定 OIT 渲染管线（可选）
-    configHandle->customRenderNodeGraphFile = 
+    configHandle->customRenderNodeGraphFile =
         "assets://app/oit_rendernodegraph.json";
 }
 

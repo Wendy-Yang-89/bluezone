@@ -1,4 +1,92 @@
-# GL ES MSAA解析方法总结
+# GL_ES_MSAA实现方式对比
+
+## 背景与问题引入
+
+### 走样现象（Aliasing）
+
+在光栅化渲染中，几何边缘（尤其是斜线或曲线）呈现阶梯状像素块的现象称为**走样（Aliasing）**，俗称"锯齿"。
+
+**产生原因：**
+- 屏幕由离散像素网格组成
+- 光栅化时像素中心点采样，结果为二元状态（完全覆盖或完全不覆盖）
+- 边缘像素缺乏过渡色，呈现锐利阶梯状
+
+### 抗锯齿技术
+
+**抗锯齿（Anti-Aliasing，AA）** 通过对边缘像素计算中间色值，实现平滑过渡。常见技术包括：
+
+| 技术 | 原理 | 性能开销 |
+|------|------|---------|
+| MSAA | 多重采样，仅对几何边缘抗锯齿 | 中等 |
+| FXAA | 后处理，检测边缘并平滑 | 低 |
+| TAA | 时域累积，利用历史帧信息 | 低-中 |
+| SSAA | 超采样，全屏抗锯齿 | 高 |
+
+### MSAA的重要性
+
+**MSAA（Multisample Anti-Aliasing）** 是应用最广泛的抗锯齿技术：
+- 仅对几何边缘进行多重采样，片元着色器仍执行一次
+- 性能开销可控（2x/4x/8x采样）
+- 硬件支持广泛，所有现代GPU均支持
+
+---
+
+## 核心概念
+
+### MSAA工作原理
+
+MSAA在每个像素内设置多个采样点（如2、4、8个），光栅化时：
+
+1. **深度/覆盖率测试**：每个采样点独立判断是否被几何覆盖
+2. **片元着色**：每个像素执行一次片元着色器（与采样数无关）
+3. **颜色复制**：被覆盖的采样点复制相同颜色值
+4. **解析（Resolve）**：将多采样数据平均为单采样输出
+
+**示例：4x MSAA**
+- 像素内4个采样点，3个被覆盖，1个未覆盖
+- 解析后颜色 = 75% 物体色 + 25% 背景色
+
+### MSAA解析（Resolve）
+
+MSAA渲染生成多采样纹理（每个像素存储N个采样值），显示前需转换为单采样纹理：
+
+- **输入**：MSAA纹理（N samples/pixel）
+- **输出**：普通纹理（1 sample/pixel）
+- **方法**：硬件自动平均或手动Shader计算
+
+解析是MSAA流程的必要步骤。
+
+### Framebuffer（FBO）
+
+**Framebuffer Object** 是OpenGL的渲染目标容器，包含：
+
+- **Color Attachment**：颜色输出缓冲，可多个（MRT）
+- **Depth Attachment**：深度缓冲，用于深度测试
+- **Stencil Attachment**：模板缓冲，用于遮罩测试
+
+MSAA FBO使用多采样纹理或Renderbuffer作为Attachment。
+
+### Tile-Based GPU架构
+
+移动GPU（ARM Mali、Adreno等）采用Tile-Based渲染：
+
+- 屏幕分割为小块（Tile，如32×32像素）
+- Tile内渲染完成后写入系统内存
+- **隐式解析优势**：Tile内可自动完成MSAA解析，无需额外显式解析步骤
+
+此架构在移动平台广泛采用，MSAA解析效率显著高于桌面GPU。
+
+### OpenGL ES的MSAA限制
+
+OpenGL ES相比桌面OpenGL有以下限制：
+
+- **不支持 `glReadBuffer`**：无法指定读取哪个Color Attachment
+- **多附件解析复杂**：需逐个创建临时FBO进行Blit操作
+- **依赖扩展**：高效隐式解析需 `GL_EXT_multisampled_render_to_texture2` 扩展
+
+本文档针对上述限制，对比分析OpenGL ES中三种MSAA解析方案。
+
+---
 
 ## 概述
 
@@ -144,13 +232,13 @@ glGenFramebuffers(2, frameBuffers);
 
 for (uint32_t idx = 0; idx < resolveAttachmentCount; ++idx) {
     // 绑定到临时FBO的ATTACHMENT0
-    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            srcType, srcTexture, 0);
-    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, 
+    glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                            dstType, dstTexture, 0);
-    
+
     // 执行单附件解析
-    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, 
+    glBlitFramebuffer(0, 0, width, height, 0, 0, width, height,
                       GL_COLOR_BUFFER_BIT, GL_NEAREST);
 }
 
@@ -217,11 +305,11 @@ uniform int uSamples;
 vec4 manualResolve(vec2 uv, ivec2 size) {
     vec4 result = vec4(0.0);
     ivec2 coord = ivec2(uv * vec2(size));
-    
+
     for (int i = 0; i < uSamples; ++i) {
         result += texelFetch(msaaTexture, coord, i);
     }
-    
+
     return result / float(uSamples);
 }
 ```
@@ -266,10 +354,10 @@ vec4 manualResolve(vec2 uv, ivec2 size) {
 
 | 目标 | memoryPropertyFlags | usageFlags | 预期触发隐式解析？ |
 |------|---------------------|------------|------------------|
-| acc_msaa | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
-| rev_msaa | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
-| acc | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
-| rev | `device_local | lazily_allocated` | `color_attachment | sampled` | ✅ 应该 |
+| acc_msaa | `device_local \| lazily_allocated` | `color_attachment \| sampled` | ✅ 应该 |
+| rev_msaa | `device_local \| lazily_allocated` | `color_attachment \| sampled` | ✅ 应该 |
+| acc | `device_local \| lazily_allocated` | `color_attachment \| sampled` | ✅ 应该 |
+| rev | `device_local \| lazily_allocated` | `color_attachment \| sampled` | ✅ 应该 |
 
 ### 可能失败的原因
 
