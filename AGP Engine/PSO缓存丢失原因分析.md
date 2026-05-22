@@ -89,7 +89,7 @@ PSO缓存丢失的影响：
 GraphicsPipelineStateCache:
   ├── hashToHandle: unordered_map<uint64_t, RenderHandle>  // 哈希→PSO句柄映射
   ├── psoCreationData: vector<GraphicsPipelineStateCreationData>  // 创建参数
-  └── pipelineStateObjects: unordered_map<uint64_t, PipelineStateObjectEntry>  // PSO对象
+  └── pipelineStateObjects: unordered_map<uint64_t, PsoData>  // PSO对象（PsoData含pso+shaderHandle）
 ```
 
 ### PSO缓存的哈希Key
@@ -198,12 +198,6 @@ WBOIT与普通渲染的RenderPass配置不同：
 
 ---
 
-## 概述
-
-本文档详细分析了在LumeRender框架中，切换RenderNodeGraph（如WBOIT和普通渲染）时，为什么PSO（Pipeline State Object）缓存无法保留而必须重新创建的根本原因。
-
----
-
 ## 一、PSO缓存机制详解
 
 ### 1.1 PSO缓存的数据结构层次
@@ -226,7 +220,7 @@ RenderNodeGraphNodeStore
         │   │
         │   └─ GraphicsPipelineStateCache graphicsPipelineStateCache_    // 图形PSO缓存
         │       ├─ vector<GraphicsPipelineStateCreationData> psoCreationData
-        │       ├─ unordered_map<uint64_t, PipelineStateObjectEntry> pipelineStateObjects
+        │       ├─ unordered_map<uint64_t, PsoData> pipelineStateObjects  // PsoData含pso+shaderHandle
         │       └─ unordered_map<uint64_t, RenderHandle> hashToHandle    ← 缓存映射
         │
         ├─ unique_ptr<NodeContextDescriptorSetManager> nodeContextDescriptorSetMgr
@@ -270,7 +264,7 @@ uint64_t HashGraphicsShader(const RenderHandle shaderHandle,
 **缓存查找流程**：
 
 ```cpp
-// node_context_pso_manager.cpp:290-334
+// node_context_pso_manager.cpp:262-337
 RenderHandle NodeContextPsoManager::GetGraphicsPsoHandleImpl(...)
 {
     auto& cache = graphicsPipelineStateCache_;
@@ -319,7 +313,7 @@ RenderHandle NodeContextPsoManager::GetGraphicsPsoHandleImpl(...)
 ### 2.1 销毁触发时机
 
 ```cpp
-// render_node_graph_manager.cpp:387-420
+// render_node_graph_manager.cpp:387-421
 void RenderNodeGraphManager::PendingDestroy(const RenderHandle handle)
 {
     const uint32_t index = RenderHandleUtil::GetIndexPart(handle);
@@ -342,12 +336,11 @@ void RenderNodeGraphManager::PendingDestroy(const RenderHandle handle)
 ### 2.2 延迟销毁机制
 
 ```cpp
-// render_node_graph_manager.cpp:317-332
+// render_node_graph_manager.cpp:276-334
 void RenderNodeGraphManager::HandlePendingAllocations()
 {
-    const uint64_t frameCount = device_.GetFrameCount();
     const uint64_t minAge = static_cast<uint64_t>(device_.GetCommandBufferingCount()) + 1;
-    const uint64_t ageLimit = (frameCount < minAge) ? 0 : (frameCount - minAge);
+    const uint64_t ageLimit = (device_.GetFrameCount() < minAge) ? 0 : (device_.GetFrameCount() - minAge);
 
     // 多帧延迟销毁（等待GPU使用完成）
     if (!pendingRenderNodeGraphDestructions_.empty()) {
@@ -600,21 +593,7 @@ virtual void InitNode(IRenderNodeContextManager& renderNodeContextMgr) = 0;
 
 ### 5.2 为什么GL/GLES也不全局缓存？
 
-**原因分析**：
-
-```cpp
-// node_context_pso_manager.cpp:444-445
-// 即使是GL/GLES，也选择了RenderNode级别的缓存设计
-const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN)
-    ? Hash(handle.id, psoStateHash)
-    : handle.id;  // ← GL/GLES也用RenderNode级别缓存
-```
-
-**设计一致性考虑**：
-- 保持跨平台API一致性
-- 统一的状态管理模型
-- 统一的生命周期管理
-- 简化代码维护
+已在3.2节分析，GL/GLES的PSO哈希仅需`handle.id`（无RenderPass依赖），理论上可全局缓存。现有框架为保持跨平台一致性（统一状态管理、统一生命周期、简化维护），仍选择RenderNode级别缓存。
 
 ---
 
@@ -674,10 +653,10 @@ const uint64_t hash = (device_.GetBackendType() == DeviceBackendType::VULKAN)
 | `render_node_graph_node_store.h:78-98` | RenderNodeContextData定义 |
 | `node_context_pso_manager.h:115-166` | PipelineStateCache定义 |
 | `node_context_pso_manager.cpp:62-77` | 哈希函数 |
-| `node_context_pso_manager.cpp:290-334` | GetGraphicsPsoHandle缓存查找 |
+| `node_context_pso_manager.cpp:262-337` | GetGraphicsPsoHandleImpl缓存查找 |
 | `node_context_pso_manager.cpp:444-445` | Vulkan vs GL/GLES差异 |
-| `render_node_graph_manager.cpp:387-420` | PendingDestroy销毁流程 |
-| `render_node_graph_manager.cpp:317-332` | HandlePendingAllocations延迟销毁 |
+| `render_node_graph_manager.cpp:387-421` | PendingDestroy销毁流程 |
+| `render_node_graph_manager.cpp:276-334` | HandlePendingAllocations延迟销毁 |
 | `renderer.cpp:130-186` | InitializeRenderNodeContextData初始化 |
 | `intf_render_node.h:74-80` | InitNode设计说明 |
 

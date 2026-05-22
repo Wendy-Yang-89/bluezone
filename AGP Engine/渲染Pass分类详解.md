@@ -70,10 +70,9 @@ Lume3D渲染系统包含三种核心渲染Pass：
 - 减少主Pass的overdraw（重复渲染）
 - 为透明材质提供正确的深度基准
 
-触发条件：
-- 场景存在Transmission材质
-- Camera启用 `ALLOW_COLOR_PRE_PASS_BIT`
-- 强制启用 `FORCE_COLOR_PRE_PASS_BIT`
+触发条件（需同时满足）：
+- Camera启用 `ALLOW_COLOR_PRE_PASS_BIT` **且** 场景存在Transmission材质
+- 或者Camera强制启用 `FORCE_COLOR_PRE_PASS_BIT`
 
 ### Main Pass
 
@@ -92,7 +91,7 @@ RenderNodeGraph分为两个层级：
 | 层级 | 配置文件 | 包含内容 |
 |------|---------|---------|
 | **场景级** | `core3d_rng_scene.rng` | Shadow Pass |
-| **相机级** | `core3d_rng_cam_scene.rng` | Depth Pre-Pass + Main Pass |
+| **相机级** | `core3d_rng_cam_scene_hdrp.rng` | Depth Pre-Pass + Main Pass |
 
 场景级Pass与相机无关，相机级Pass依赖Camera配置。
 
@@ -114,17 +113,17 @@ RenderNodeGraph分为两个层级：
 └────────────────────────────────────────────────────┘
                       │
                       ▼
-┌──────────────────────────────────────────────────────┐
-│ 相机级 RenderNodeGraph (core3d_rng_cam_scene.rng)     │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│ Depth Pre-Pass (条件触发)                             │
+┌───────────────────────────────────────────────────────┐
+│ 相机级 RenderNodeGraph (core3d_rng_cam_scene_hdrp.rng) │
+├───────────────────────────────────────────────────────┤
+│                                                       │
+│ Depth Pre-Pass (条件触发)                              │
 │   └─ 触发条件: Transmission材质 / 强制Pre-Pass         │
-│   └─ 仅渲染深度信息                                   │
-│   └─ RenderNode: RenderNodeDefaultMaterialRenderSlot │
-│   └─ RenderSlot: CORE3D_RS_DM_DEPTH_PRE_PASS         │
-│                                                      │
-└──────────────────────────────────────────────────────┘
+│   └─ 仅渲染深度信息                                    │
+│   └─ RenderNode: RenderNodeDefaultMaterialRenderSlot  │
+│   └─ RenderSlot: CORE3D_RS_DM_FW_OPAQUE               │
+│                                                       │
+└───────────────────────────────────────────────────────┘
                       │
                       ▼
 ┌──────────────────────────────────────────────────┐
@@ -149,21 +148,9 @@ RenderNodeGraph分为两个层级：
 
 ---
 
-## 一、概述
+## 一、三种 Pass 的定义与目的
 
-在 Lume3D 渲染系统中，存在三种主要的渲染 Pass：
-
-1. **阴影 Pass (Shadow Pass)** - 生成阴影贴图
-2. **Depth Pre-Pass (深度预渲染)** - 提前填充深度缓冲
-3. **正常 Mesh 渲染 Pass** - 完整的几何体渲染（Opaque/Translucent）
-
-这三种 Pass 在渲染流程中扮演不同角色，有着不同的执行顺序、目的和技术细节。
-
----
-
-## 二、三种 Pass 的定义与目的
-
-### 2.1 阴影 Pass (Shadow Pass)
+### 1.1 阴影 Pass (Shadow Pass)
 
 **定义：** 从光源视角渲染场景深度，生成阴影贴图（Shadow Map）。
 
@@ -180,7 +167,7 @@ RenderNodeGraph分为两个层级：
 - `CORE3D_RS_DM_DEPTH` - PCF 阴影
 - `CORE3D_RS_DM_DEPTH_VSM` - VSM 阴影
 
-### 2.2 Depth Pre-Pass (深度预渲染)
+### 1.2 Depth Pre-Pass (深度预渲染)
 
 **定义：** 在正常渲染前单独渲染几何体的深度信息。
 
@@ -194,11 +181,10 @@ RenderNodeGraph分为两个层级：
 **Render Node 类型：** `RenderNodeDefaultMaterialRenderSlot`（使用 Opaque Render Slot）
 
 **典型触发条件：**
-- Camera 启用 `PipelineFlagBits::ALLOW_COLOR_PRE_PASS_BIT`
-- Camera 启用 `PipelineFlagBits::FORCE_COLOR_PRE_PASS_BIT`
-- 场景存在 Transmission 材质（自动触发）
+- Camera 启用 `ALLOW_COLOR_PRE_PASS_BIT` **且** 场景存在 Transmission 材质（自动触发）
+- Camera 启用 `PipelineFlagBits::FORCE_COLOR_PRE_PASS_BIT`（强制每帧触发）
 
-### 2.3 正常 Mesh 渲染 Pass
+### 1.3 正常 Mesh 渲染 Pass
 
 **定义：** 完整渲染几何体的颜色、深度等信息。
 
@@ -218,9 +204,9 @@ RenderNodeGraph分为两个层级：
 
 ---
 
-## 三、执行顺序对比
+## 二、执行顺序对比
 
-### 3.1 完整渲染流程顺序
+### 2.1 完整渲染流程顺序
 
 ```
 场景级 Render Node Graph (core3d_rng_scene.rng)
@@ -244,7 +230,7 @@ Camera 级 Render Node Graph (每个 Camera)
 └── 6. PostProcess Nodes               ← 后处理
 ```
 
-### 3.2 阴影 Pass 的特殊性
+### 2.2 阴影 Pass 的特殊性
 
 **阴影 Pass 在所有 Camera 渲染之前执行！**
 
@@ -263,9 +249,9 @@ Time Line:
 
 ---
 
-## 四、技术细节对比
+## 三、技术细节对比
 
-### 4.1 渲染输出对比
+### 3.1 渲染输出对比
 
 | 特性 | 阴影 Pass | Depth Pre-Pass | 正常 Mesh Pass |
 |------|----------|----------------|-----------------|
@@ -274,7 +260,7 @@ Time Line:
 | **Depth Attachment** | 必须（Shadow Map） | 必须 | 必须 |
 | **着色计算** | 最简化（仅深度） | 最简化 | 完整（光照、材质等） |
 
-### 4.2 Shader 对比
+### 3.2 Shader 对比
 
 | 特性 | 阴影 Pass | Depth Pre-Pass | 正常 Mesh Pass |
 |------|----------|----------------|-----------------|
@@ -283,7 +269,7 @@ Time Line:
 | **材质绑定** | `depthShader` | `depthShader` | `materialShader` |
 | **纹理采样** | 极少（可选 alpha mask） | 极少 | 全部材质纹理 |
 
-### 4.3 Render Pass 配置对比
+### 3.3 Render Pass 配置对比
 
 #### 阴影 Pass Render Pass
 
@@ -370,9 +356,9 @@ Time Line:
 
 ---
 
-## 五、阴影 Pass 详细分析
+## 四、阴影 Pass 详细分析
 
-### 5.1 Shadow Pass 的核心逻辑
+### 4.1 Shadow Pass 的核心逻辑
 
 阴影 Pass 从光源视角渲染场景，生成阴影贴图：
 
@@ -409,14 +395,14 @@ void RenderNodeDefaultShadowRenderSlot::ExecuteFrame(IRenderCommandList& cmdList
 }
 ```
 
-### 5.2 Shadow Atlas（阴影贴图集）
+### 4.2 Shadow Atlas（阴影贴图集）
 
 多个阴影光源的渲染结果存储在一个 Shadow Atlas 中：
 
 ```
 Shadow Atlas Layout:
 ┌────────────────────────────────────────┐
-│ Light 0 │ Light 1 │ Light 2 │ Light 3 │  ← Directional Lights
+│ Light 0 │ Light 1 │ Light 2 │ Light 3  │  ← Directional Lights
 ├────────────────────────────────────────┤
 │ Light 4 │ Light 5 │ ...                │  ← Spot Lights
 └────────────────────────────────────────┘
@@ -434,7 +420,7 @@ cmdList.SetDynamicStateViewport(vd);
 cmdList.SetDynamicStateScissor(sd);
 ```
 
-### 5.3 阴影类型对比
+### 4.3 阴影类型对比
 
 | 阴影类型 | 输出 | 特点 | Render Slot |
 |---------|------|------|-------------|
@@ -442,7 +428,7 @@ cmdList.SetDynamicStateScissor(sd);
 | **VSM** | 深度 + 深度矩 | 软阴影，可过滤 | `CORE3D_RS_DM_DEPTH_VSM` |
 | **VARIABLE_PCF** | 深度 + 额外信息 | 可变 PCF 核大小 | `CORE3D_RS_DM_DEPTH_VSM` |
 
-### 5.4 阴影 Pass 的 Shader 选择
+### 4.4 阴影 Pass 的 Shader 选择
 
 ```cpp
 // render_node_default_shadow_render_slot.cpp:373-376
@@ -455,9 +441,9 @@ const auto& selectableShaders =
 
 ---
 
-## 六、Depth Pre-Pass 详细分析
+## 五、Depth Pre-Pass 详细分析
 
-### 6.1 Depth Pre-Pass 的触发条件
+### 5.1 Depth Pre-Pass 的触发条件
 
 Depth Pre-Pass 在以下情况下触发：
 
@@ -472,7 +458,7 @@ Depth Pre-Pass 在以下情况下触发：
    - Transmission 材质需要背景深度信息
    - 自动检测并触发 Pre-Pass
 
-### 6.2 Depth Pre-Pass 的执行流程
+### 5.2 Depth Pre-Pass 的执行流程
 
 ```
 Depth Pre-Pass (独立 Camera 渲染流程):
@@ -488,7 +474,7 @@ Depth Pre-Pass (独立 Camera 渲染流程):
 - 渲染到独立的 Render Target
 - 后处理降采样输出
 
-### 6.3 Depth Pre-Pass 的配置示例
+### 5.3 Depth Pre-Pass 的配置示例
 
 ```json
 // core3d_rng_cam_scene_pre_pass.rng
@@ -510,30 +496,30 @@ Depth Pre-Pass (独立 Camera 渲染流程):
 }
 ```
 
-### 6.4 Depth Pre-Pass 与主 Pass 的关系
+### 5.4 Depth Pre-Pass 与主 Pass 的关系
 
 ```
 主 Pass 继承 Pre-Pass 结果:
 ┌─────────────────────────────────────────────┐
 │ Pre-Pass                                    │
-│ ├── 低分辨率深度                            │
-│ ├── 低分辨率颜色                            │
-│ └── 后处理降采样                            │
+│ ├── 低分辨率深度                             │
+│ ├── 低分辨率颜色                             │
+│ └── 后处理降采样                             │
 └─────────────────────────────────────────────┘
            ↓ (作为 Input Attachment)
 ┌─────────────────────────────────────────────┐
 │ 主 Pass                                     │
-│ ├── loadOp: load (继承深度)                 │
-│ ├── 使用 Pre-Pass 颜色作为背景              │
-│ └── Transmission 材质采样 Pre-Pass 结果     │
+│ ├── loadOp: load (继承深度)                  │
+│ ├── 使用 Pre-Pass 颜色作为背景               │
+│ └── Transmission 材质采样 Pre-Pass 结果      │
 └─────────────────────────────────────────────┘
 ```
 
 ---
 
-## 七、正常 Mesh 渲染 Pass 详细分析
+## 六、正常 Mesh 渲染 Pass 详细分析
 
-### 7.1 Opaque Pass（不透明渲染）
+### 6.1 Opaque Pass（不透明渲染）
 
 **特点：**
 - 按 Material 排序（减少 PSO 切换）
@@ -556,7 +542,7 @@ Depth Pre-Pass (独立 Camera 渲染流程):
 // 优化渲染性能
 ```
 
-### 7.2 Translucent Pass（透明渲染）
+### 6.2 Translucent Pass（透明渲染）
 
 **特点：**
 - 从后向前排序（Back-to-Front）
@@ -579,7 +565,7 @@ Depth Pre-Pass (独立 Camera 渲染流程):
 // 前面的物体在后面物体之上渲染
 ```
 
-### 7.3 多子渲染 Pass（Subpass）
+### 6.3 多子渲染 Pass（Subpass）
 
 正常 Mesh Pass 通常使用多个 Subpass：
 
@@ -608,9 +594,9 @@ Subpass 2: Translucent
 
 ---
 
-## 八、三种 Pass 的数据流对比
+## 七、三种 Pass 的数据流对比
 
-### 8.1 Shader/材质数据绑定对比
+### 7.1 Shader/材质数据绑定对比
 
 | 数据来源 | 阴影 Pass | Depth Pre-Pass | 正常 Pass |
 |---------|----------|----------------|----------|
@@ -619,7 +605,7 @@ Subpass 2: Translucent
 | **材质纹理** | 极少使用 | 极少使用 | 全部使用 |
 | **材质 Uniforms** | 简化版 | 简化版 | 完整版 |
 
-### 8.2 Descriptor Set 绑定对比
+### 7.2 Descriptor Set 绑定对比
 
 ```
 阴影 Pass:
@@ -642,7 +628,7 @@ Depth Pre-Pass:
 └── Set 4+: 后处理绑定
 ```
 
-### 8.3 PSO 创建对比
+### 7.3 PSO 创建对比
 
 ```cpp
 // 阴影 Pass PSO 创建
@@ -666,9 +652,9 @@ ssd.hash = HashShaderDataAndSubmesh(ssd.hash, renderSubmeshMaterialFlags.renderH
 
 ---
 
-## 九、性能优化对比
+## 八、性能优化对比
 
-### 9.1 阴影 Pass 性能优化
+### 8.1 阴影 Pass 性能优化
 
 ```cpp
 // 1. Shadow Atlas 减少资源切换
@@ -685,7 +671,7 @@ ssd.hash = HashShaderDataAndSubmesh(ssd.hash, renderSubmeshMaterialFlags.renderH
 // 后续执行 Blur Pass 软化阴影边缘
 ```
 
-### 9.2 Depth Pre-Pass 性能优化
+### 8.2 Depth Pre-Pass 性能优化
 
 ```cpp
 // 1. 低分辨率渲染
@@ -701,7 +687,7 @@ ssd.hash = HashShaderDataAndSubmesh(ssd.hash, renderSubmeshMaterialFlags.renderH
 // 为 Transmission 提供背景深度
 ```
 
-### 9.3 正常 Pass 性能优化
+### 8.3 正常 Pass 性能优化
 
 ```cpp
 // 1. Material 排序（Opaque）
@@ -719,9 +705,9 @@ ssd.hash = HashShaderDataAndSubmesh(ssd.hash, renderSubmeshMaterialFlags.renderH
 
 ---
 
-## 十、示例：完整渲染流程
+## 九、示例：完整渲染流程
 
-### 10.1 场景配置
+### 9.1 场景配置
 
 假设有一个场景：
 - 1 个 Directional Light（阴影光源）
@@ -730,7 +716,7 @@ ssd.hash = HashShaderDataAndSubmesh(ssd.hash, renderSubmeshMaterialFlags.renderH
 - 10 个 Translucent Mesh
 - 5 个 Transmission Mesh
 
-### 10.2 渲染流程执行
+### 9.2 渲染流程执行
 
 ```
 Frame Rendering Timeline:
@@ -813,7 +799,7 @@ Frame Rendering Timeline:
 └── Camera B 可能不触发 Pre-Pass（无 Transmission 视野）
 ```
 
-### 10.3 资源传递关系
+### 9.3 资源传递关系
 
 ```
 资源流向图:
@@ -842,7 +828,7 @@ Pre-Pass 输出:
 
 ---
 
-## 十一、关键代码位置
+## 十、关键代码位置
 
 | 功能 | 文件路径 |
 |------|---------|
@@ -858,9 +844,9 @@ Pre-Pass 输出:
 
 ---
 
-## 十二、总结
+## 十一、总结
 
-### 12.1 三种 Pass 的核心差异
+### 11.1 三种 Pass 的核心差异
 
 | 维度 | 阴影 Pass | Depth Pre-Pass | 正常 Pass |
 |------|----------|----------------|----------|
@@ -872,7 +858,7 @@ Pre-Pass 输出:
 | **排序方式** | by_material | by_material | by_material / back_to_front |
 | **全局性** | 全局资源 | Camera 级 | Camera 级 |
 
-### 12.2 选择建议
+### 11.2 选择建议
 
 | 场景 | 建议配置 |
 |------|---------|
@@ -882,7 +868,7 @@ Pre-Pass 输出:
 | **性能优先** | 使用 Pre-Pass + Deferred |
 | **移动端** | 使用 LWRP + 酌情 Pre-Pass |
 
-### 12.3 最佳实践
+### 11.3 最佳实践
 
 1. **阴影 Pass：**
    - 使用合适的 Shadow Map 分辨率
@@ -901,9 +887,9 @@ Pre-Pass 输出:
 
 ---
 
-## 十三、Transmission 材质自动触发 Depth Pre-Pass 的机制
+## 十二、Transmission 材质自动触发 Depth Pre-Pass 的机制
 
-### 13.1 Transmission 材质的特殊性
+### 12.1 Transmission 材质的特殊性
 
 **Transmission（透射）材质** 是一种特殊的透明材质类型（如玻璃、水等），它允许光线穿过物体表面。
 
@@ -914,18 +900,18 @@ Pre-Pass 输出:
 
 **解决方案：** 使用 Depth Pre-Pass 预先渲染背景，Transmission 材质在主 Pass 中采样 Pre-Pass 结果。
 
-### 13.2 自动触发机制
+### 12.2 自动触发机制
 
 Transmission 材质会自动触发 Depth Pre-Pass，这一机制发生在 Render System 的材质处理阶段：
 
 ```cpp
-// render_system.cpp:1912-1920
+// render_system.cpp:1912-1924
 void RenderSystem::EvaluateRenderDataStoreOutput() {
     const auto info = dsMaterial_->GetRenderFrameObjectInfo();
 
     // 检查场景中是否存在 Transmission 材质
     if (info.renderMaterialFlags & RenderMaterialFlagBits::RENDER_MATERIAL_TRANSMISSION_BIT) {
-        // 如果存在，设置 NEEDS_COLOR_PRE_PASS 标志
+        // NOTE: should be alpha blend and not double sided
         renderProcessing_.frameFlags |= NEEDS_COLOR_PRE_PASS;  // ← 自动触发 Pre-Pass
     }
 
@@ -933,62 +919,178 @@ void RenderSystem::EvaluateRenderDataStoreOutput() {
 }
 ```
 
-### 13.3 Pre-Pass Camera 的创建
+### 12.3 Pre-Pass Camera 的创建
 
 当 `NEEDS_COLOR_PRE_PASS` 标志被设置后，Render System 会自动创建 Pre-Pass Camera：
 
 ```cpp
-// render_system.cpp:2239-2252
+// render_system.cpp:2239-2253
 const bool createPrePassCam =
     (component.pipelineFlags & CameraComponent::FORCE_COLOR_PRE_PASS_BIT) ||   // 强制触发
     (component.pipelineFlags & CameraComponent::ALLOW_COLOR_PRE_PASS_BIT);      // 允许自动触发
 
 if (createPrePassCam) {
-    // 计算 Pre-Pass Camera 的唯一 ID
     prePassCameraHash = Hash(camera.id, camera.id);
-
-    // 设置 Pre-Pass 颜色目标的名称
     camera.prePassColorTargetName = renderScene.name +
                                      DefaultMaterialCameraConstants::CAMERA_COLOR_PREFIX_NAME +
                                      to_hex(prePassCameraHash) + '_' + to_hex(prePassCameraHash);
-
-    // 创建 Pre-Pass RenderCamera
+}
+tmpCameras.push_back(camera);
+// The order of setting cameras matter (main camera index is set already)
+if (createPrePassCam) {
     tmpCameras.push_back(CreateColorPrePassRenderCamera(
         *gpuHandleMgr_, *cameraMgr_, *gpuResourceMgr_, camera,
         component.prePassCamera, prePassCameraHash, backendType_));
 }
 ```
 
-### 13.4 Camera 排序与依赖关系
+### 12.4 Camera 排序与依赖关系
 
 当存在 Pre-Pass 需求时，Camera 的排序会发生变化：
 
 ```cpp
-// render_system.cpp:2923
+// render_system.cpp:2922-2923
 const vector<CameraOrdering> baseCameras =
     SortCameras(renderCameras, (renderProcessing_.frameFlags & NEEDS_COLOR_PRE_PASS));
 ```
 
+#### SortCameras 逐行解析
+
+**文件位置：** `src/ecs/systems/render_system.cpp:1134-1179`
+
 ```cpp
-// render_system.cpp:1159-1162
-// Pre-Pass Camera 作为主 Camera 的依赖
-if (!(cam.flags & RenderCamera::CAMERA_FLAG_COLOR_PRE_PASS_BIT) || prepassRequired) {
-    depCameras.push_back({ cam.id, cam.mainCameraId, camIdx });
+struct CameraOrdering {
+    uint64_t id { RenderSceneDataConstants::INVALID_ID };          // 相机ID
+    uint64_t mainId { RenderSceneDataConstants::INVALID_ID };      // 依赖的主相机ID
+    size_t renderCameraIdx { 0 };                                   // 在 renderCameras 数组中的索引
+};
+
+vector<CameraOrdering> SortCameras(
+    const array_view<const RenderCamera> renderCameras, const bool prepassRequired)
+{
+    vector<CameraOrdering> baseCameras;    // 无依赖的独立相机
+    vector<CameraOrdering> depCameras;     // 有依赖的从属相机（Pre-Pass、反射等）
+    baseCameras.reserve(renderCameras.size());
+    depCameras.reserve(renderCameras.size());
+    size_t mainCamIdx = size_t(~0);        // 主相机索引（初始无效）
+```
+
+**baseCameras vs depCameras：**
+
+| 分类 | 判定条件 | 典型成员 | 排序位置 |
+|------|---------|---------|---------|
+| **baseCameras** | `mainCameraId == INVALID_ID`（无父依赖） | 主相机、独立相机 | 主列表，按原始顺序 |
+| **depCameras** | `mainCameraId != INVALID_ID`（有父依赖） | Pre-Pass Camera、反射Camera | 插入到父相机**之前** |
+
+```cpp
+    // 忽略阴影相机和仅多视角相机
+    constexpr uint32_t ignoreFlags {
+        RenderCamera::CAMERA_FLAG_SHADOW_BIT | RenderCamera::CAMERA_FLAG_MULTI_VIEW_ONLY_BIT };
+    for (size_t camIdx = 0; camIdx < renderCameras.size(); ++camIdx) {
+        const auto& cam = renderCameras[camIdx];
+        if ((cam.flags & ignoreFlags)) {
+            continue;                           // ① 跳过阴影/多视角专用相机
+        }
+        if (cam.flags & RenderCamera::CAMERA_FLAG_MAIN_BIT) {
+            mainCamIdx = camIdx;                // ② 记录主相机（稍后追加到末尾）
+        } else if (cam.mainCameraId == RenderSceneDataConstants::INVALID_ID) {
+            baseCameras.push_back({ cam.id, cam.mainCameraId, camIdx });  // ③ 独立相机 → baseCameras
+        } else if (!(cam.flags & RenderCamera::CAMERA_FLAG_COLOR_PRE_PASS_BIT) || prepassRequired) {
+            // ④ Pre-Pass相机仅在需要时加入depCameras
+            depCameras.push_back({ cam.id, cam.mainCameraId, camIdx });
+        }
+    }
+```
+
+**第④步的关键逻辑：** 条件 `!(cam.flags & CAMERA_FLAG_COLOR_PRE_PASS_BIT) || prepassRequired` 的真值表：
+
+| 相机类型 | `CAMERA_FLAG_COLOR_PRE_PASS_BIT` | `prepassRequired` | 条件结果 | 是否加入depCameras |
+|---------|:---:|:---:|:---:|:---:|
+| 反射Camera | 0 | false | `true \|\| false` = **true** | **加入** |
+| 反射Camera | 0 | true | `true \|\| true` = **true** | **加入** |
+| Pre-Pass Camera | 1 | false | `false \|\| false` = **false** | **跳过** |
+| Pre-Pass Camera | 1 | true | `false \|\| true` = **true** | **加入** |
+
+**设计意图：**
+
+到达第④步的相机有两个前提：不是主相机 + 有父依赖（`mainCameraId != INVALID_ID`）。这类相机分为两种：
+
+1. **反射Camera等非Pre-Pass从属相机** — 始终加入 depCameras。无论场景是否需要 Pre-Pass，反射Camera都必须渲染（它产出反射贴图供主相机使用）。
+
+2. **Pre-Pass Camera** — 仅在 `prepassRequired == true` 时加入。原因：
+
+   - Pre-Pass Camera 在 Camera 处理阶段（`render_system.cpp:2239-2253`）就已创建，只要主相机设置了 `ALLOW_COLOR_PRE_PASS_BIT` 或 `FORCE_COLOR_PRE_PASS_BIT`，Pre-Pass Camera 就会存在于 renderCameras 列表中
+   - 但 `ALLOW_COLOR_PRE_PASS_BIT` 仅表示"允许自动触发"，不代表每帧都需要 Pre-Pass
+   - 当场景中不存在 Transmission 材质时，`NEEDS_COLOR_PRE_PASS` 未被设置，`prepassRequired == false`
+   - 此时若仍渲染 Pre-Pass Camera，会白白执行一次低分辨率全场景深度渲染，浪费GPU资源
+   - 因此第④步通过此条件过滤掉不需要的 Pre-Pass Camera，实现**按需激活**
+
+   ```
+   ALLOW_COLOR_PRE_PASS_BIT 的语义链:
+   
+   CameraComponent.pipelineFlags
+     └─ ALLOW_COLOR_PRE_PASS_BIT ──→ 创建 Pre-Pass Camera（始终创建）
+                                         │
+                                     SortCameras 检查
+                                         │
+                              prepassRequired? (NEEDS_COLOR_PRE_PASS)
+                              ├── false → 跳过 Pre-Pass Camera（不渲染）
+                              └── true  → 加入 depCameras（执行渲染）
+                                         │
+                              NEEDS_COLOR_PRE_PASS 的触发源:
+                              ├── 场景存在 Transmission 材质（自动）
+                              └── Camera 设置 FORCE_COLOR_PRE_PASS_BIT（强制）
+   ```
+
+   这解释了为什么 `ALLOW` 和 `FORCE` 是两个独立标志：`ALLOW` 给出"可以触发"的权限，`NEEDS_COLOR_PRE_PASS` 是"本帧是否需要"的运行时判断，两者共同决定 Pre-Pass Camera 是否实际执行。
+
+```cpp
+    // ⑤ 主相机追加到 baseCameras 末尾（确保主相机最后渲染）
+    if (mainCamIdx < renderCameras.size()) {
+        const auto& cam = renderCameras[mainCamIdx];
+        baseCameras.push_back({ cam.id, cam.mainCameraId, mainCamIdx });
+    }
+    // ⑥ 将 depCameras 插入到其父相机之前
+    for (const auto& depCam : depCameras) {
+        const auto pos = std::find_if(baseCameras.cbegin(), baseCameras.cend(),
+            [mainId = depCam.mainId](const CameraOrdering& base) {
+                return base.id == mainId;   // 查找父相机
+            });
+        if (pos != baseCameras.cend()) {
+            baseCameras.insert(pos, depCam);   // 插入到父相机之前
+        }
+    }
+    return baseCameras;
 }
 ```
 
-**排序结果：**
+**排序结果示例：**
+
 ```
-Pre-Pass Camera → 主 Camera → 其他 Camera
+场景: Main Camera (id=100), Pre-Pass Camera (id=200, mainCameraId=100), Reflection Camera (id=300, mainCameraId=100)
+
+排序前 renderCameras: [200, 300, 100]
+  - cam[0] id=200: CAMERA_FLAG_COLOR_PRE_PASS_BIT, mainCameraId=100 → depCameras
+  - cam[1] id=300: CAMERA_FLAG_REFLECTION_BIT, mainCameraId=100 → depCameras
+  - cam[2] id=100: CAMERA_FLAG_MAIN_BIT → mainCamIdx=2
+
+baseCameras (插入主相机后): [100]
+depCameras: [200, 300]
+
+插入 depCameras:
+  - depCam id=200, mainId=100 → 在 baseCameras 中找到 id=100 → 插入其前 → [200, 100]
+  - depCam id=300, mainId=100 → 在 baseCameras 中找到 id=100 → 插入其前 → [200, 300, 100]
+
+最终排序: [Pre-Pass Camera, Reflection Camera, Main Camera]
 ```
 
 Pre-Pass Camera 必须在其主 Camera 之前执行，以便主 Camera 可以使用 Pre-Pass 的结果。
 
 ---
 
-## 十四、Pre-Pass 输出在主 Pass 中的使用
+## 十三、Pre-Pass 输出在主 Pass 中的使用
 
-### 14.1 Pre-Pass 输出的传递方式
+### 13.1 Pre-Pass 输出的传递方式
 
 Pre-Pass 渲染的颜色输出通过以下方式传递给主 Pass：
 
@@ -1000,7 +1102,7 @@ layout(set = 0, binding = 7) uniform CORE_RELAXEDP sampler2D uSampColorPrePass;
 
 这个 sampler 在所有使用 Default Material Fragment Layout 的 shader 中都可用。
 
-### 14.2 Pre-Pass 输出的内容
+### 13.2 Pre-Pass 输出的内容
 
 Pre-Pass Camera 渲染以下内容：
 
@@ -1025,7 +1127,7 @@ Pre-Pass Output (降采样):
 }
 ```
 
-### 14.3 Transmission 材质的透射计算
+### 13.3 Transmission 材质的透射计算
 
 Transmission 材质在 shader 中使用 Pre-Pass 颜色进行透射效果：
 
@@ -1044,27 +1146,27 @@ void AppendIndirectTransmission(
 }
 ```
 
-### 14.4 完整的 Transmission 渲染流程
+### 13.4 完整的 Transmission 渲染流程
 
 ```
 Pre-Pass 渲染流程:
 ┌─────────────────────────────────────────────┐
 │ 1. Camera Controller (Pre-Pass 配置)        │
-│    ├── 创建降采样 Render Target             │
+│    ├── 创建降采样 Render Target              │
 │    └── 配置 depth/color attachment          │
 │                                             │
-│ 2. Opaque Render Slot                      │
-│    ├── 渲染所有不透明几何体                  │
-│    ├── 使用 depthShader (简化版)            │
-│    ├── 输出 depth + color                   │
-│    └── 不执行完整光照计算                   │
+│ 2. Opaque Render Slot                       │
+│    ├── 渲染所有不透明几何体                   │
+│    ├── 使用 depthShader (简化版)             │
+│    ├── 输出 depth + color                    │
+│    └── 不执行完整光照计算                     │
 │                                             │
-│ 3. Environment Render                      │
-│    └── 渲染天空盒/环境                      │
+│ 3. Environment Render                       │
+│    └── 渲染天空盒/环境                       │
 │                                             │
-│ 4. PostProcess (降采样)                    │
-│    ├── 将 color 降采样到多级 mip            │
-│    └── 输出最终的 prePassColor              │
+│ 4. PostProcess (降采样)                      │
+│    ├── 将 color 降采样到多级 mip              │
+│    └── 输出最终的 prePassColor               │
 └─────────────────────────────────────────────┘
            ↓
     uSampColorPrePass (set 0, binding 7)
@@ -1074,25 +1176,25 @@ Pre-Pass 渲染流程:
 │                                             │
 │ Transmission 材质 Fragment Shader:          │
 │                                             │
-│ 1. 计算当前像素的 UV 坐标                   │
-│ 2. 根据透射系数计算采样参数                 │
+│ 1. 计算当前像素的 UV 坐标                     │
+│ 2. 根据透射系数计算采样参数                   │
 │    ├── transmission = material.transmission │
-│    ├── 选择合适的 mip level                 │
-│    └── 应用 UV 偏移（模拟折射）             │
+│    ├── 选择合适的 mip level                  │
+│    └── 应用 UV 偏移（模拟折射）               │
 │                                             │
-│ 3. 采样 Pre-Pass 颜色                       │
+│ 3. 采样 Pre-Pass 颜色                        │
 │    vec3 backgroundColor = textureLod(       │
 │        uSampColorPrePass,                   │
 │        refractedUV,                         │
 │        mipLevel                             │
 │    );                                       │
 │                                             │
-│ 4. 计算 Transmission 最终颜色               │
+│ 4. 计算 Transmission 最终颜色                │
 │    vec3 transmissionColor = backgroundColor │
 │        * baseColor                          │
 │        * transmission;                      │
 │                                             │
-│ 5. 混合透射颜色与直接光照                   │
+│ 5. 混合透射颜色与直接光照                     │
 │    finalColor = mix(                        │
 │        directLighting,                      │
 │        transmissionColor,                   │
@@ -1101,7 +1203,7 @@ Pre-Pass 渲染流程:
 └─────────────────────────────────────────────┘
 ```
 
-### 14.5 Pre-Pass Depth 的使用
+### 13.5 Pre-Pass Depth 的使用
 
 虽然 Pre-Pass 输出了深度，但在主 Pass 中**深度通常不通过采样使用**：
 
@@ -1124,7 +1226,7 @@ Pre-Pass 渲染流程:
 }
 ```
 
-### 14.6 Pre-Pass Color 的 Mip Level 选择
+### 13.6 Pre-Pass Color 的 Mip Level 选择
 
 Transmission 材质根据透射系数选择不同精度的背景采样：
 
@@ -1152,9 +1254,9 @@ vec3 backgroundColor = textureLod(uSampColorPrePass, uv, mipLevel);
 
 ---
 
-## 十五、Pre-Pass 自动触发 vs 手动触发
+## 十四、Pre-Pass 自动触发 vs 手动触发
 
-### 15.1 触发方式对比
+### 14.1 触发方式对比
 
 | 触发方式 | 配置标志 | 触发时机 | 应用场景 |
 |---------|---------|---------|---------|
@@ -1162,7 +1264,7 @@ vec3 backgroundColor = textureLod(uSampColorPrePass, uv, mipLevel);
 | **强制触发** | `FORCE_COLOR_PRE_PASS_BIT` | 每帧都执行 | 性能优化（减少 overdraw） |
 | **禁用** | 无上述标志 | 永不触发 | 无 Transmission 的场景 |
 
-### 15.2 Camera 配置示例
+### 14.2 Camera 配置示例
 
 ```cpp
 // 自动触发（推荐）
@@ -1181,7 +1283,7 @@ camera.pipelineFlags = 0;  // 不设置任何 Pre-Pass 相关标志
 // 永不触发 Pre-Pass
 ```
 
-### 15.3 自动触发的优缺点
+### 14.3 自动触发的优缺点
 
 **优点：**
 - 无需手动判断场景内容
@@ -1193,7 +1295,7 @@ camera.pipelineFlags = 0;  // 不设置任何 Pre-Pass 相关标志
 - 可能与手动配置的 Pre-Pass Camera 冲突
 - 自动创建的 Pre-Pass Camera 可能不满足特殊需求
 
-### 15.4 何时选择强制触发
+### 14.4 何时选择强制触发
 
 **推荐强制触发的场景：**
 1. **复杂场景（大量 Overdraw）：**
@@ -1207,17 +1309,17 @@ camera.pipelineFlags = 0;  // 不设置任何 Pre-Pass 相关标志
 
 ---
 
-## 十六、代码位置参考
+## 十五、代码位置参考
 
 | 功能 | 文件路径 |
 |------|---------|
 | Transmission 自动触发检测 | `src/ecs/systems/render_system.cpp:1916-1919` |
-| Pre-Pass Camera 创建 | `src/ecs/systems/render_system.cpp:2239-2252` |
-| Camera 排序逻辑 | `src/ecs/systems/render_system.cpp:1140-1178` |
+| Pre-Pass Camera 创建 | `src/ecs/systems/render_system.cpp:2239-2253` |
+| Camera 排序逻辑 | `src/ecs/systems/render_system.cpp:1140-1162` |
 | Pre-Pass 颜色 Shader Binding | `api/3d/shaders/common/3d_dm_frag_layout_common.h:57` |
 | Transmission Shader 处理 | `api/3d/shaders/common/3d_dm_lighting_common.h:138-145` |
-| Render Material Flags 定义 | `api/3d/render/render_data_defines_3d.h:187-241` |
-| Camera Pipeline Flags 定义 | `api/3d/ecs/components/camera_component.h:63-104` |
+| Render Material Flags 定义 | `api/3d/render/render_data_defines_3d.h:199` |
+| Camera Pipeline Flags 定义 | `api/3d/ecs/components/camera_component.h:76-79` |
 
 ---
 

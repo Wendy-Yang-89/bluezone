@@ -2,63 +2,33 @@
 
 ## 背景与问题引入
 
-### RenderPass与Subpass概念
+### RenderPass与Subpass
 
-**RenderPass（渲染通道）** 是Vulkan渲染架构的核心概念，定义一次完整渲染操作的结构：
+**RenderPass（渲染通道）** 定义一次完整渲染操作，包含 Attachments（渲染目标）、Subpasses（渲染阶段）、Load/Store Operations（生命周期管理）。
 
-- **Attachments**：渲染使用的图像资源（颜色、深度、模板）
-- **Subpasses**：RenderPass内的渲染阶段划分
-- **Load/Store Operations**：Attachment的生命周期管理
-
-RenderPass使GPU能够优化渲染流程，减少不必要的内存访问。
-
-### Subpass的优势
-
-**Subpass** 是RenderPass内的渲染阶段，具有以下特性：
-
-- 同一RenderPass内的多个Subpass可共享Attachments
-- Subpass间通过Input Attachment传递数据，无需显式拷贝
-- Tile-Based GPU可保持数据在片上内存，避免写回系统内存
-
-Subpass切换比RenderPass切换更高效：
+**Subpass（子通道）** 是 RenderPass 内的渲染阶段，Subpass 切换比 RenderPass 切换更高效：
 
 | 操作 | API调用 | GPU开销 |
 |------|--------|--------|
-| RenderPass切换 | `vkCmdBeginRenderPass` + `vkCmdEndRenderPass` | 较高（需重建状态） |
+| RenderPass切换 | `vkCmdBeginRenderPass` + `vkCmdEndRenderPass` | 较高（重建状态） |
 | Subpass切换 | `vkCmdNextSubpass` | 较低（状态延续） |
 
-### 多RenderPass的性能问题
+Subpass 的核心优势：
+- 同一 RenderPass 内共享 Attachments
+- 通过 Input Attachment 传递数据，无需显式拷贝
+- Tile-Based GPU 可保持数据在片上内存
 
-传统渲染流程可能包含多个独立RenderPass：
+### 多RenderPass的性能问题与合并优化
 
-```
-传统流程：
-RenderPass 0 (几何渲染) → RenderPass 1 (光照计算) → RenderPass 2 (后处理)
-每次切换：vkCmdBeginRenderPass → vkCmdEndRenderPass（重复调用）
-```
+多个独立 RenderPass 切换时产生重复 API 调用和内存带宽开销。**MultiRenderPass合并优化** 将多个独立 RenderPass 合并为单个 RenderPass 的多个 Subpass：
 
-性能开销：
-- 多次GPU状态切换
-- Attachment内容需在RenderPass间传递（显式拷贝）
-- 无法利用Tile-Based GPU的片上内存优化
-
-### 合并优化的目标
-
-**MultiRenderPass合并优化** 将多个独立RenderPass合并为单个RenderPass：
-
-```
-优化流程：
-RenderPass（合并后）：
-  Subpass 0: 几何渲染
-  Subpass 1: 光照计算
-  Subpass 2: 后处理
-单次调用：vkCmdBeginRenderPass → vkCmdNextSubpass → vkCmdEndRenderPass
-```
-
-优化效果：
-- 减少API调用次数
-- Attachment在Subpass间共享，无需显式拷贝
-- 充分利用Tile-Based GPU优化
+| | 传统流程（多RenderPass） | 优化流程（合并） |
+|---|---|---|
+| 几何渲染 | RenderPass 0: begin→end | Subpass 0 |
+| 光照计算 | RenderPass 1: begin→end | Subpass 1 |
+| 后处理 | RenderPass 2: begin→end | Subpass 2 |
+| API调用 | `vkCmdBeginRenderPass` × 3 | `vkCmdBeginRenderPass` × 1 |
+| 数据传递 | Attachment 间显式拷贝 | Input Attachment，无额外带宽 |
 
 ### 本文档解决的问题
 
@@ -74,126 +44,79 @@ RenderPass（合并后）：
 
 ### RenderPassDesc
 
-**RenderPassDesc** 是RenderPass的描述结构：
+**RenderPassDesc** 是 RenderPass 的描述结构：
 
 | 字段 | 类型 | 作用 |
 |------|------|------|
-| `attachmentCount` | uint32 | Attachment数量 |
-| `attachments` | array | Attachment描述数组 |
-| `subpassCount` | uint32 | Subpass数量 |
-| `subpasses` | array | Subpass描述数组 |
-
-RenderPassDesc定义渲染操作的完整结构。
+| `attachmentCount` | uint32 | Attachment 数量 |
+| `attachments` | array | Attachment 描述数组 |
+| `subpassCount` | uint32 | Subpass 数量 |
+| `subpasses` | array | Subpass 描述数组 |
 
 ### AttachmentDescription
 
-**AttachmentDescription** 定义单个Attachment的属性：
+**AttachmentDescription** 定义单个 Attachment 的属性：
 
 | 字段 | 作用 |
 |------|------|
-| `format` | 图像格式（如RGBA8、DEPTH24） |
-| `sampleCount` | MSAA采样数 |
-| `loadOp` | 开始时的操作（LOAD/CLEAR/DONT_CARE） |
-| `storeOp` | 结束时的操作（STORE/DONT_CARE） |
+| `format` | 图像格式（如 RGBA8、DEPTH24） |
+| `sampleCount` | MSAA 采样数 |
+| `loadOp` | 开始时的操作（LOAD / CLEAR / DONT_CARE） |
+| `storeOp` | 结束时的操作（STORE / DONT_CARE） |
+| `stencilStoreOp` | 模板结束时的操作 |
 | `initialLayout` | 开始时的图像布局 |
 | `finalLayout` | 结束时的图像布局 |
 
-LoadOp/StoreOp决定Attachment的生命周期管理。
+LoadOp / StoreOp 决定 Attachment 的生命周期管理。合并优化中：**从第一个 RenderPass 取 LoadOp，从最后一个取 StoreOp**。
 
 ### SubpassDescription
 
-**SubpassDescription** 定义Subpass的输入输出：
+**SubpassDescription** 定义 Subpass 的输入输出：
 
 | 字段 | 作用 |
 |------|------|
-| `colorAttachmentIndices` | 颜色输出Attachment索引 |
-| `depthAttachmentIndex` | 深度Attachment索引 |
-| `resolveAttachmentIndices` | 解析目标Attachment索引 |
-| `inputAttachmentIndices` | 输入Attachment索引 |
+| `colorAttachmentIndices` | 颜色输出 Attachment 索引 |
+| `depthAttachmentIndex` | 深度 Attachment 索引 |
+| `resolveAttachmentIndices` | 解析目标 Attachment 索引 |
+| `inputAttachmentIndices` | 输入 Attachment 索引 |
+| `subpassFlags` | Subpass 标志位（含 MERGE_BIT） |
 
-Subpass通过索引引用RenderPass的Attachments。
+### SubpassFlagBits
+
+**文件位置：** `api/render/device/pipeline_state_desc.h`
+
+| 枚举值 | 作用 |
+|--------|------|
+| `CORE_SUBPASS_MERGE_BIT` | 标记该 Subpass 可与前一个 Subpass 合并，减少 `vkCmdNextSubpass()` 调用 |
+
+合并条件：InputAttachment 数量相同 + ResolveAttachment 兼容 + 仅 Vulkan 后端支持。
+
+### DeviceBackendType
+
+**文件位置：** `api/render/device/intf_device.h:103`
+
+| 枚举值 | 说明 |
+|--------|------|
+| `VULKAN` | Vulkan 后端（支持 Subpass 合并） |
+| `GLES` | OpenGL ES 后端（不支持 Subpass 合并） |
 
 ### MultiRenderPassStore
 
-**MultiRenderPassStore** 是LumeRender的多RenderPass容器：
+**MultiRenderPassStore** 是 LumeRender 的多 RenderPass 容器，存储需要合并的多个 RenderPass 命令：
 
-```cpp
-struct MultiRenderPassStore {
-    vector<RenderCommandBeginRenderPass*> renderPasses;  // 待合并的RenderPass列表
-};
-```
-
-此结构存储需要合并的多个RenderPass命令，供优化函数处理。
-
----
-
-## 一、背景概念
-
-### 1.1 RenderPass结构
-
-**RenderPass（渲染通道）** 是图形渲染中的一个核心概念，代表一次完整的渲染操作周期。
-
-**RenderPass组成元素：**
-
-| 元素 | 说明 |
-|------|------|
-| **Attachments** | 渲染目标图像（颜色、深度、模板） |
-| **Subpasses** | RenderPass内的渲染阶段 |
-| **Load/Store Operations** | Attachment生命周期管理 |
-
-**Attachment生命周期操作：**
-
-| 操作 | 选项 | 说明 |
+| 字段 | 类型 | 作用 |
 |------|------|------|
-| **LoadOp** | LOAD/CLEAR/DONT_CARE | RenderPass开始时如何处理Attachment |
-| **StoreOp** | STORE/DONT_CARE | RenderPass结束时如何处理Attachment |
+| `renderPasses` | `vector<RenderCommandBeginRenderPass*>` | 多个 RenderPass 命令指针 |
+| `firstRenderPassCommandListIndex` | uint32_t | 第一个 RenderPass 的命令列表索引（默认 `~0u`） |
+| `firstRenderPassBarrierPointIndex` | uint32_t | 第一个 RenderPass 的 BarrierPoint 索引（默认 `~0u`） |
+| `firstRenderPassBarrierList` | `RenderBarrierList*` | 第一个 RenderPass 的 Barrier 列表（默认 `nullptr`） |
+| `supportOpen` | bool | 是否支持多 RenderPass 拼接（默认 `false`） |
 
 ---
 
-### 1.2 Subpass优势
+## 一、函数作用
 
-**Subpass（子通道）** 是RenderPass内的渲染阶段，允许多个渲染步骤共享同一个RenderPass。
-
-**典型应用：延迟渲染**
-
-| Subpass | 输入 | 输出 | 说明 |
-|---------|------|------|------|
-| Subpass 0 | 无 | Albedo, Normal, Depth | G-Buffer生成 |
-| Subpass 1 | G-Buffer | 最终颜色 | 光照计算（InputAttachment引用） |
-| Subpass 2 | 最终颜色 | 后处理结果 | 后处理效果 |
-
-**Subpass性能优势：**
-- 减少RenderPass切换开销
-- InputAttachment复用，无需额外带宽
-- Tile-Based GPU可保持数据在片上内存
-
----
-
-### 1.3 MultiRenderPass优化机制
-
-**MultiRenderPass（多渲染通道）** 是LumeRender的优化机制，将多个独立RenderPass合并为统一的RenderPass。
-
-**传统流程（多RenderPass）：**
-
-| 步骤 | RenderPass | API调用 |
-|------|-----------|--------|
-| 1 | 几何渲染 | vkCmdBeginRenderPass → vkCmdEndRenderPass |
-| 2 | 光照计算 | vkCmdBeginRenderPass → vkCmdEndRenderPass |
-| 3 | 后处理 | vkCmdBeginRenderPass → vkCmdEndRenderPass |
-
-**优化流程（合并RenderPass）：**
-
-| 步骤 | Subpass | API调用 |
-|------|---------|--------|
-| 1 | 几何渲染 | vkCmdBeginRenderPass（单次） |
-| 2 | 光照计算 | vkCmdNextSubpass |
-| 3 | 后处理 | vkCmdNextSubpass → vkCmdEndRenderPass |
-
----
-
-## 二、函数作用
-
-### 2.1 核心目的
+### 核心目的
 
 `UpdateMultiRenderCommandListRenderPasses` 函数负责：
 
@@ -202,9 +125,7 @@ struct MultiRenderPassStore {
 3. **Subpass 合并优化** → 减少 Vulkan API 调用次数
 4. **整合 Load/Store 操作** → 从第一个取 Load，从最后一个取 Store
 
----
-
-### 2.2 函数签名
+### 函数签名
 
 ```cpp
 void UpdateMultiRenderCommandListRenderPasses(
@@ -213,19 +134,11 @@ void UpdateMultiRenderCommandListRenderPasses(
 );
 ```
 
-**MultiRenderPassStore 结构：**
-
-```cpp
-struct MultiRenderPassStore {
-    vector<RenderCommandBeginRenderPass*> renderPasses;  // 多个 RenderPass 命令
-};
-```
-
 ---
 
-## 三、函数执行流程详解
+## 二、函数执行流程详解
 
-### 3.1 初始化和验证 (276-287)
+### 2.1 初始化和验证 (276-287)
 
 ```cpp
 const auto renderPassCount = (uint32_t)store.renderPasses.size();
@@ -248,7 +161,7 @@ const uint32_t attachmentCount = firstRenderPass->renderPassDesc.attachmentCount
 
 ---
 
-### 3.2 同步资源状态 (293-307)
+### 2.2 同步资源状态 (293-307)
 
 ```cpp
 // 将每个 RenderPass 的资源状态同步到所有其他 RenderPass
@@ -300,7 +213,7 @@ RenderPass 2: { layout[0]=COLOR_ATTACHMENT, state[0]=READ_WRITE }  ← 同步
 
 ---
 
-### 3.3 合并附件 Load/Store 操作 (309-317)
+### 2.3 合并附件 Load/Store 操作 (309-317)
 
 ```cpp
 // 从第一个取 LoadOp，从最后一个取 StoreOp
@@ -331,7 +244,7 @@ for (uint32_t idx = 0; idx < firstRenderPass->renderPassDesc.attachmentCount; ++
 │  │                                                 │  │
 │  │ StoreOp（来自最后一个 RenderPass）                │  │
 │  │ ├── 保存/丢弃附件最终内容                         │  │
-│  │                                                  │  │
+│  │                                                 │  │
 │  │ FinalLayout（来自最后一个 RenderPass）            │  │
 │  └── 附件在 RenderPass 结束后的布局                     │
 └───────────────────────────────────────────────────────┘
@@ -364,7 +277,7 @@ for (uint32_t idx = 0; idx < firstRenderPass->renderPassDesc.attachmentCount; ++
 
 ---
 
-### 3.4 收集子通道到第一个 RenderPass (319-337)
+### 2.4 收集子通道到第一个 RenderPass (319-337)
 
 ```cpp
 bool mergeSubpasses = false;
@@ -405,7 +318,7 @@ if (device.GetBackendType() != DeviceBackendType::VULKAN) {
 
 ---
 
-### 3.5 Subpass 合并优化 (339-406)
+### 2.5 Subpass 合并优化 (339-406)
 
 ```cpp
 uint32_t subpassCount = renderPassCount;
@@ -491,7 +404,7 @@ if (mergeSubpasses) {
 
 ---
 
-### 3.6 同步到所有 RenderPass (408-429)
+### 2.6 同步到所有 RenderPass (408-429)
 
 ```cpp
 for (uint32_t idx = 1; idx < renderPassCount; ++idx) {
@@ -529,7 +442,7 @@ for (uint32_t idx = 1; idx < renderPassCount; ++idx) {
 
 ---
 
-## 四、完整流程图
+## 三、完整流程图
 
 ```plantuml
 @startuml
@@ -585,9 +498,9 @@ stop
 
 ---
 
-## 五、性能优化效果
+## 四、性能优化效果
 
-### 5.1 Vulkan API 调用减少
+### 4.1 Vulkan API 调用减少
 
 | 优化前 | 优化后 | 效果 |
 |--------|--------|------|
@@ -595,7 +508,7 @@ stop
 | `vkCmdEndRenderPass` × N | `vkCmdEndRenderPass` × 1 | 减少 N-1 次 |
 | `vkCmdNextSubpass` × (N-1) | `vkCmdNextSubpass` × (合并后数量-1) | 进一步减少 |
 
-### 5.2 内存带宽优化
+### 4.2 内存带宽优化
 
 ```
 Subpass InputAttachment 优势：
@@ -607,9 +520,9 @@ Subpass InputAttachment 优势：
 
 ---
 
-## 六、典型应用场景
+## 五、典型应用场景
 
-### 6.1 延迟渲染
+### 5.1 延迟渲染
 
 ```
 Subpass 0: G-Buffer 生成
@@ -628,7 +541,7 @@ Subpass 2: 后处理
 
 ---
 
-### 6.2 透明物体渲染
+### 5.2 透明物体渲染
 
 ```
 Subpass 0: 不透明物体
@@ -646,39 +559,36 @@ Subpass 2: OIT 合成
 
 ---
 
-## 七、代码调用位置
+## 六、代码调用位置
 
-**文件：** `submodules/LumeRender/src/render_graph.cpp:1028`
+**文件：** `submodules/LumeRender/src/render_graph.cpp:1058`
 
 ```cpp
-void RenderGraph::Process()
+void RenderGraph::RenderCommand(const uint32_t renderNodeIndex,
+    const uint32_t commandListCommandIndex, RenderNodeContextData& nodeData,
+    RenderCommandBeginRenderPass& rc, StateCache& stateCache)
 {
-    // ... 渲染图处理 ...
+    // ... 处理BeginRenderPass命令 ...
 
-    if (stateCache.multiRenderPassStore.renderPasses.size() > 1) {
-        UpdateMultiRenderCommandListRenderPasses(device_, stateCache.multiRenderPassStore);
+    if (hasRenderPassDependency) { // stitch render pass subpasses
+        // ...
+        const bool finalSubpass = (rc.subpassStartIndex == rc.renderPassDesc.subpassCount - 1);
+        if (finalSubpass) {
+            UpdateMultiRenderCommandListRenderPasses(device_, stateCache.multiRenderPassStore);
+            // ...
+        }
     }
-
-    // ... 后续处理 ...
+    // ...
 }
 ```
 
 ---
 
-## 八、版本历史
-
-| 版本 | 日期 | 描述 |
-|------|------|------|
-| 1.0 | 2025-01-XX | 初始版本 |
-| 1.1 | 2025-05-19 | 增加背景概念解释、流程图、应用场景 |
-
----
-
-## 九、参考资料
+## 七、参考资料
 
 | 文件 | 描述 |
 |------|------|
 | `src/render_graph.cpp` | RenderGraph 处理，调用此函数 |
-| `api/render/device/intf_render_command_buffer.h` | RenderCommandBeginRenderPass 定义 |
+| `src/nodecontext/render_command_list.h` | RenderCommandBeginRenderPass 定义 |
 | `api/render/device/intf_device.h` | DeviceBackendType 定义 |
 | Vulkan Spec | RenderPass 和 Subpass 规范 |

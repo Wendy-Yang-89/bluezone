@@ -80,8 +80,8 @@ Descriptor Type决定GPU如何访问资源。
 
 ```cpp
 struct PipelineLayout {
-    vector<DescriptorSetLayout> descriptorSetLayouts;  // 各Set的布局
-    PushConstantRange pushConstantRange;              // Push Constant范围
+    PushConstant pushConstant;              // Push Constant
+    DescriptorSetLayout descriptorSetLayouts[MAX_DESCRIPTOR_SET_COUNT] {};  // 各Set的布局（固定大小数组）
 };
 ```
 
@@ -93,14 +93,16 @@ PipelineLayout必须与Shader的 `set/binding` 声明一致。
 
 ```cpp
 struct DescriptorSetLayout {
+    uint32_t set;                           // Set索引
     vector<DescriptorSetLayoutBinding> bindings;  // Binding列表
 };
 
 struct DescriptorSetLayoutBinding {
-    uint32_t binding;           // Binding编号
-    DescriptorType descriptorType;  // 资源类型
-    uint32_t descriptorCount;   // 资源数量（数组大小）
-    ShaderStageFlags stageFlags;    // 可见的Shader阶段
+    uint32_t binding;                       // Binding编号
+    DescriptorType descriptorType;          // 资源类型
+    uint32_t descriptorCount;               // 资源数量（数组大小）
+    ShaderStageFlags shaderStageFlags;      // 可见的Shader阶段
+    AdditionalDescriptorTypeFlags additionalDescriptorTypeFlags;  // 附加标志（Image维度等）
 };
 ```
 
@@ -165,12 +167,6 @@ Shader资源绑定流程:
 │     pipelineLayout, 0, 3, descriptorSets, dynamicOffsets); │
 └────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## 概述
-
-本文档详细说明Shader中的资源声明（set、binding、descriptor type）如何映射到PipelineLayout配置文件（shaderpl），确保资源绑定的正确性。
 
 ---
 
@@ -1471,7 +1467,7 @@ shaderpl: 缺少 "image_dimension_cube_bit" ✗
 ## 九、实践经验
 
 1. **新增Shader资源时**：先在shaderpl中添加对应binding配置
-2. **验证配置**：使用lsb_parser.py检查LSB与shaderpl一致性
+2. **验证配置**：使用`lsb_parser.py`检查LSB与shaderpl一致性
 3. **避免冲突**：确保同一set/binding只定义一次
 4. **Debug工具**：启用`RENDER_VALIDATION_ENABLED`检查绑定错误
 

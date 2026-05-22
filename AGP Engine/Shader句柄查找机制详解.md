@@ -87,9 +87,12 @@ ShaderStateObject是材质绑定的核心数据结构。
 - 用于Shader查找时的槽位匹配
 - 不同渲染场景使用不同RenderSlot ID
 
-典型RenderSlot ID：
-- `CORE3D_RS_DM_OPAQUE` = 0（Opaque渲染）
-- `CORE3D_RS_DM_TRANSLUCENT` = 1（Translucent渲染）
+典型RenderSlot：
+- `CORE3D_RS_DM_FW_OPAQUE` - Opaque渲染
+- `CORE3D_RS_DM_FW_TRANSLUCENT` - Translucent渲染
+- `CORE3D_RS_DM_DEPTH` - 深度/阴影渲染
+
+注：RenderSlot ID在运行时动态分配，不同运行实例的ID值可能不同。
 
 ### Shader查找流程
 
@@ -160,6 +163,7 @@ ShaderManager::GetShaderHandle 查找流程:
 
 ## 函数签名
 ```cpp
+// shader_manager.cpp:981
 RenderHandleReference ShaderManager::GetShaderHandle(const RenderHandle& handle, const uint32_t renderSlotId) const
 ```
 
@@ -181,7 +185,7 @@ const RenderHandleType handleType = RenderHandleUtil::GetHandleType(handle);
 if ((handleType != RenderHandleType::COMPUTE_SHADER_STATE_OBJECT) &&
     (handleType != RenderHandleType::SHADER_STATE_OBJECT)) {
     return {}; // early out
-(}
+}
 ```
 - 首先获取句柄类型
 - 如果不是计算着色器状态对象或着色器状态对象，直接返回空引用

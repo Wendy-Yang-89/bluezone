@@ -102,12 +102,6 @@ Attachment的选择决定渲染输出的内容和格式。
 
 ---
 
-## 概述
-
-OpenGL ES中有四种核心渲染对象，它们在渲染管线中扮演不同角色。本文档详细对比它们的定义、用途、创建方法和使用场景。
-
----
-
 ## 一、对象定义对比表
 
 | 对象类型 | 定义 | 主要用途 | 是否可采样 | 是否可渲染 | 内存类型 |
@@ -458,7 +452,7 @@ glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
 **限制：**
 - ❌ 所有附件必须相同尺寸
 - ❌ 附件格式必须兼容
-- ❌ GLES最多支持4个颜色附件（GL_COLOR_ATTACHMENT0-3）
+- ❌ GLES最少保证4个颜色附件（GL_MAX_COLOR_ATTACHMENTS >= 4，实际取决于实现，LumeRender定义为8）
 - ❌ 某些格式组合不被支持
 
 **适用场景：**
@@ -472,34 +466,16 @@ glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER,
 
 ## 六、核心区别对比总结
 
-### 6.1 数据存储 vs 容器管理
-
-| 对象 | 角色 | 存储数据？ |
-|------|------|-----------|
-| **Texture2D** | 数据存储对象 | ✅ 存储2D图像数据 |
-| **Texture Layer** | 数据存储对象（Array的一部分） | ✅ 存储单层数据 |
-| **Renderbuffer** | 数据存储对象 | ✅ 存储渲染数据 |
-| **Framebuffer** | 容器管理对象 | ❌ 仅引用其他对象 |
-
-### 6.2 可采样性对比
-
-| 对象 | Shader采样 | 作为渲染目标 |
-|------|-----------|-------------|
-| **Texture2D** | ✅ 可以 | ✅ 可以 |
-| **Texture Layer** | ✅ 可以 | ✅ 可以 |
-| **Renderbuffer** | ❌ 不可以 | ✅ 可以 |
-| **Framebuffer** | N/A（容器） | N/A（容器） |
-
-### 6.3 MSAA支持对比
+### 6.1 MSAA支持对比
 
 | 对象 | MSAA支持 | GLES扩展需求 |
 |------|---------|-------------|
 | **Texture2D** | ❌ 不支持（GLES限制） | 需特殊扩展：`GL_EXT_multisampled_render_to_texture2` |
 | **Texture Layer** | ❌ 不支持 | 无 |
-| **Renderbuffer** | ✅ 支持 | 核心功能：`glRenderbufferStorageMultisampleEXT` |
+| **Renderbuffer** | ✅ 支持 | 核心功能：`glRenderbufferStorageMultisample`（GLES 3.0+）或 EXT扩展：`glRenderbufferStorageMultisampleEXT` |
 | **Framebuffer** | N/A（容器） | - |
 
-### 6.4 绑定方式对比
+### 6.2 绑定方式对比
 
 | 对象 | 绑定函数 | 绑定参数 |
 |------|---------|---------|
@@ -609,71 +585,109 @@ glFramebufferTextureLayer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, vrTextureArray, 
 
 ### 8.1 Texture2D应用
 
-**文件位置**：`submodules\LumeRender\src\gles\gpu_image_gles.cpp`
+**文件位置**：`submodules\LumeRender\src\gles\gpu_image_gles.cpp:103-164`
 
 ```cpp
-// GpuImageGLES创建Texture2D
-void GpuImageGLES::CreateImageImpl()
+// GpuImageGLES创建Texture2D (在构造函数中)
+void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImagePlatformDataGL& plat)
 {
-    glGenTextures(1, &plat_.image);
-    glBindTexture(GL_TEXTURE_2D, plat_.image);
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, type, NULL);
+    const uint32_t sampleCount = ConvertSampleCountFlags(desc.sampleCountFlags);
+    glGenTextures(1, &plat.image);
 
-    // 作为渲染目标
-    if (usageFlags & CORE_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, plat_.image, 0);
+    const Math::UVec2 size2D { desc.width, desc.height };
+    switch (desc.imageViewType) {
+        case CORE_IMAGE_VIEW_TYPE_2D: {
+            if (sampleCount > 1) {
+                plat.type = GL_TEXTURE_2D_MULTISAMPLE;
+                device.TexStorage2DMultisample(plat.image, plat.type, sampleCount, plat.internalFormat, size2D, true);
+            } else {
+                plat.type = GL_TEXTURE_2D;
+                device.TexStorage2D(plat.image, plat.type, desc.mipCount, plat.internalFormat, size2D);
+            }
+            break;
+        }
+        // ... 其他imageViewType分支
     }
 }
 ```
 
 ### 8.2 Renderbuffer应用
 
-**文件位置**：`submodules\LumeRender\src\gles\gpu_image_gles.cpp:216-226`
+**文件位置**：`submodules\LumeRender\src\gles\gpu_image_gles.cpp:203-228`
 
 ```cpp
-// GpuImageGLES创建Renderbuffer（用于MSAA）
-if (desc_.sampleCountFlags > 1) {
-    glGenRenderbuffers(1, &plat_.renderbuffer);
-    glBindRenderbuffer(GL_RENDERBUFFER, plat_.renderbuffer);
-    glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, samples, format, width, height);
-
-    // 绑定到Framebuffer
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, plat_.renderbuffer);
+// GpuImageGLES创建Renderbuffer（在构造函数中）
+// 条件：非Array、非Src/Dst、非Sampled、非Storage、非Input
+if ((!isArray) && (!isSrc) && (!isDst) && (!isSample) && (!isStorage) && (!isInput)) {
+    glGenRenderbuffers(1, &plat_.renderBuffer);
+    glBindRenderbuffer(GL_RENDERBUFFER, plat_.renderBuffer);
+    if (sampleCount > 1) {
+        if (device_.HasExtension("GL_EXT_multisampled_render_to_texture2")) {
+            glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, sampleCount, plat_.internalFormat, width, height);
+        } else {
+            glRenderbufferStorageMultisample(GL_RENDERBUFFER, sampleCount, plat_.internalFormat, width, height);
+        }
+    } else {
+        glRenderbufferStorage(GL_RENDERBUFFER, plat_.internalFormat, width, height);
+    }
 }
 ```
 
 ### 8.3 Texture Layer应用
 
-**文件位置**：`submodules\LumeRender\src\gles\node_context_pool_manager_gles.cpp:300-310`
+**文件位置**：`submodules\LumeRender\src\gles\node_context_pool_manager_gles.cpp:312-318`
 
 ```cpp
-// Array Texture绑定到Framebuffer
-if (desc.imageViewType == CORE_IMAGE_VIEW_TYPE_2D_ARRAY) {
-    glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture, level, layer);
+// BindToFbo中处理Array Texture绑定到Framebuffer
+if ((plat.type == GL_TEXTURE_2D_ARRAY) || (plat.type == GL_TEXTURE_2D_MULTISAMPLE_ARRAY)) {
+    if (views) {
+        glFramebufferTextureMultiviewOVR(
+            GL_FRAMEBUFFER, attachType, plat.image, (GLint)image.mipLevel, (GLint)image.layer, (GLsizei)views);
+    } else {
+        glFramebufferTextureLayer(
+            GL_FRAMEBUFFER, attachType, plat.image, (GLint)image.mipLevel, (GLint)image.layer);
+    }
 }
 ```
 
 ### 8.4 Framebuffer管理
 
-**文件位置**：`submodules\LumeRender\src\gles\node_context_pool_manager_gles.cpp`
+**文件位置**：`submodules\LumeRender\src\gles\node_context_pool_manager_gles.cpp:422-488`
 
 ```cpp
-// NodeContextPoolManagerGLES管理FBO
-void NodeContextPoolManagerGLES::CreateFramebuffer()
+// GenerateSubPassFBO创建Subpass的FBO
+uint32_t GenerateSubPassFBO(DeviceGLES& device, LowlevelFramebufferGL& framebuffer,
+    const RenderPassSubpassDesc& sb, const array_view<const BindImage> images,
+    const size_t resolveAttachmentCount, const array_view<const uint32_t> imageMap,
+    bool multisampledRenderToTexture)
 {
-    glGenFramebuffers(1, &fbo_);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    GLuint fbo;
+    glGenFramebuffers(1, &fbo);
+    device.BindFrameBuffer(fbo);
 
-    // 绑定多个附件
-    for (auto& attachment : attachments_) {
-        if (attachment.isTexture) {
-            glFramebufferTexture2D(...);
+    // 绑定Color Attachments
+    for (uint32_t idx = 0; idx < sb.colorAttachmentCount; ++idx) {
+        const uint32_t ci = sb.colorAttachmentIndices[idx];
+        drawBuffers[idx] = GL_COLOR_ATTACHMENT0 + colorAttachmentCount;
+        if (original == EMPTY_ATTACHMENT) {
+            BindToFbo(drawBuffers[idx], images[ci], ...);
         } else {
-            glFramebufferRenderbuffer(...);
+            BindToFboMultisampled(drawBuffers[idx], images[original], images[ci], ...);
         }
+        ++colorAttachmentCount;
+    }
+    glDrawBuffers((GLsizei)sb.colorAttachmentCount, drawBuffers);
+
+    // 绑定Depth Attachment
+    if (sb.depthAttachmentCount == 1) {
+        BindToFboMultisampled(bindType, images[original], images[di], ...);
     }
 
-    glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (!VerifyFBO()) {
+        glDeleteFramebuffers(1, &fbo);
+        fbo = 0U;
+    }
+    return fbo;
 }
 ```
 
@@ -766,27 +780,3 @@ switch (status) {
 - `GL_ES_MSAA解析方法总结.md` - MSAA解析方法详解
 - `GL后端FBO与Subpass处理详解.md` - FBO和Subpass处理流程
 - `GL后端Shader编译流程详解.md` - Shader编译和绑定
-
----
-
-## 附录：术语对照表
-
-| 术语 | 英文 | 说明 |
-|------|------|------|
-| Texture2D | 2D Texture | 二维纹理 |
-| Texture Layer | Texture Layer | 纹理层（Array Texture的一部分） |
-| Renderbuffer | Renderbuffer | 渲染缓冲 |
-| Framebuffer | Framebuffer Object (FBO) | 帧缓冲对象 |
-| Attachment | Attachment | FBO附件（颜色/深度/Stencil） |
-| MRT | Multiple Render Targets | 多渲染目标 |
-| MSAA | Multisample Anti-Aliasing | 多采样抗锯齿 |
-| Resolve | Resolve | MSAA解析（从MSAA到非MSAA） |
-| Off-screen Rendering | Off-screen Rendering | 离屏渲染 |
-| Array Texture | Texture Array | 纹理数组（多层纹理） |
-
----
-
-**文档版本**: 1.0
-**创建日期**: 2026-05-15
-**作者**: Claude Analysis
-**状态**: 完成

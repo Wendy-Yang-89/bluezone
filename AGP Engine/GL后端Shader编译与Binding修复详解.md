@@ -105,29 +105,6 @@ LSB与SPIR-V文件配套，扩展名为`.spv.lsb`。
 
 ---
 
-## 概述
-
-**注意：binding = 11 是占位符，需要在运行时修复！**
-
-### LSB文件
-
-**LSB（Layout Shader Binary）文件** 是LumeRender的元数据文件：
-- 记录Shader的Descriptor Set布局
-- 记录每个资源的名称、类型、binding信息
-- 用于运行时查找和修复binding
-
-**类比理解：**
-- LSB文件 = Shader的"资源地址簿"
-- 包含每个资源在SPIR-V中的原始地址信息
-
----
-
-## 概述
-
-本文档详细分析LumeRender GL后端的shader编译流程，包括SPIR-V到GLSL的转换、binding修复机制、shader编译链接过程、以及shader cache机制。
-
----
-
 ## 一、完整编译流程架构图
 
 ### 1.1 高层流程
@@ -222,7 +199,7 @@ PostProcessSource() 修复 binding
 │ │   └── Miss: 创建新 shader                     │
 │ ├── glCreateShader(GL_VERTEX/FRAGMENT/COMPUTE) │
 │ ├── glShaderSource() 设置源码                   │
-│ ├── glCompileShader() 编译                     │
+│ ├── glCompileShader() 编译                      │
 │ └── glGetShaderiv(GL_COMPILE_STATUS) 检查结果   │
 │                                                │
 │ 错误处理:                                       │
@@ -268,28 +245,43 @@ PostProcessSource() 修复 binding
 │ │   └── glGetProgramResourceIndex(GL_SS_BLOCK)│
 │ │   └── glGetProgramResourceiv()              │
 │ │                                             │
-│ ├── ProcessUniformBlocks()                    │
-│ │   └── glGetUniformBlockIndex()              │
-│ │   └── glUniformBlockBinding()               │
+│ ├── ProcessImageTextures()                    │
+│ │   └── glGetProgramResourceIndex(GL_UNIFORM) │
+│ │   └── glGetProgramResourceiv()              │
 │ │                                             │
 │ ├── ProcessSamplers()                         │
-│ │   └── glGetUniformLocation()                │
-│ │   └── glUniform1i()                         │
+│ │   └── glGetProgramResourceIndex(GL_UNIFORM) │
+│ │   └── glProgramUniform1iv()                 │
 │ │                                             │
-│ ├── BuildBindInfos()                          │
-│ │   └── 构建 descriptor index map             │
-│ │   └── 构建 sampler/texture binding map      │
+│ ├── ProcessCombinedSamplers()                 │
+│ │   └── 构建 sampler/texture 组合映射          │
 │ │                                             │
-│ └── BuildReflection()                         │
-│     └── 构建 shader reflection data           │
-│     └── 用于 runtime binding                  │
+│ ├── ProcessUniformBlocks()                    │
+│ │   └── glGetProgramResourceIndex(GL_UB)      │
+│ │   └── glUniformBlockBinding()               │
+│ │                                             │
+│ ├── ProcessSubPassInputs()                    │
+│ │   └── 处理 Input Attachment bindings        │
+│ └─────────────────────────────────────────────┘
+     │
+     ↓
+┌───────────────────────────────────────────────┐
+│ BuildBindInfos() 构建绑定映射                  │
+│ (gpu_program_gles.cpp:411-522)                │
+│                                               │
+│ 处理内容:                                      │
+│ ├── 遍历 Pipeline Layout 的所有 binding        │
+│ ├── SAMPLER 类型: 查找 combined 映射           │
+│ ├── SAMPLED_IMAGE 类型: 查找 combined 映射     │
+│ ├── 其他类型: 直接映射到 binding unit           │
+│ └── 合并 samplers 和 others 到 resourceList    │
 └───────────────────────────────────────────────┘
     │
     ↓
 ┌───────────────────────────────────────────────┐
 │ 可用的 GPU Program                             │
 │                                               │
-│ 资源:                                          │
+│ 资源:                                         │
 │ ├── Shader Object (glShader)                  │
 │ ├── Program Object (glProgram)                │
 │ ├── Reflection Data                           │
@@ -362,7 +354,7 @@ GpuProgramGLES <- GpuProgramGLES : 返回 GpuProgram
 ### 2.1 ShaderModuleCreateInfo 结构
 
 ```cpp
-// shader_module.h
+// shader_manager.h:78-82
 struct ShaderModuleCreateInfo {
     ShaderStageFlags shaderStageFlags;             // Shader 类型标志
     array_view<const uint8_t> spvData;            // SPIR-V / GLSL 数据
@@ -527,7 +519,20 @@ void CollectRes(const PipelineLayout& pipeline, ShaderModulePlatformDataGLES& pl
                         Collect(set.set, binding, plat_.siSets);
                         break;
 
-                    default:
+                    // 以下类型在 GLES 中不单独处理
+                    case DescriptorType::CORE_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
+                        [[fallthrough]];
+                    case DescriptorType::CORE_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
+                        break;
+
+                    case DescriptorType::CORE_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+                        [[fallthrough]];
+                    case DescriptorType::CORE_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+                        break;
+
+                    case DescriptorType::CORE_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE:
+                        [[fallthrough]];
+                    case DescriptorType::CORE_DESCRIPTOR_TYPE_MAX_ENUM:
                         break;
                 }
             }
@@ -555,31 +560,43 @@ void CollectRes(const PipelineLayout& pipeline, ShaderModulePlatformDataGLES& pl
 **ShaderModulePlatformDataGLES 数据结构：**
 
 ```cpp
-struct ShaderModulePlatformDataGLES {
-    // Storage Buffer bindings
-    vector<Bind> sbSets;   // 每个 Bind: { set, binding, count, name }
+struct ShaderModulePlatformDataGLES : ShaderModulePlatformData {
+    // Push Constant reflections
+    vector<Gles::PushConstantReflection> infos;
 
-    // Storage Image bindings
-    vector<Bind> ciSets;   // 每个 Bind: { set, binding, count, name }
+    struct Bind {
+        uint8_t iSet, iBind;       // binding set, binding index
+        uint8_t arrayElements;     // for array binds
+        string name;               // name opengl uniform/block
+    };
 
     // Uniform Buffer bindings
-    vector<Bind> ubSets;   // 每个 Bind: { set, binding, count, name }
+    vector<Bind> ubSets;           // uniform blocks
 
-    // Combined Image Sampler bindings
-    vector<Bind> cbSets;   // 每个 Bind: { set, binding, count, name }
+    // Storage Buffer bindings
+    vector<Bind> sbSets;           // shader storage blocks
 
     // Input Attachment bindings
-    vector<Bind> siSets;   // 每个 Bind: { set, binding, count, name }
+    vector<Bind> siSets;           // subpass inputs
+
+    // Storage Image bindings
+    vector<Bind> ciSets;           // image textures
+
+    // Combined Image Sampler bindings
+    vector<Bind> cbSets;           // combined textures (sampler2D etc)
+
+    struct DoubleBind {
+        uint8_t sSet, sBind;       // sampler binding set, binding index
+        uint8_t iSet, iBind;       // image binding set, binding index
+        string name;               // name of combined image/sampler
+    };
 
     // Combined sampler-image bindings (GL特有)
-    vector<DoubleBind> combSets; // { samplerSet, samplerBind, imageSet, imageBind, name }
-
-    // Push Constant reflections
-    vector<PushConstantReflection> infos;
-
-    // Specialization constant info
-    vector<SpecConstantInfo> specInfo;
+    vector<DoubleBind> combSets;   // combined image / sampler (generated from separated image/sampler)
 };
+
+// 注意: specInfo 位于 ShaderModuleGLES 类中，不在 ShaderModulePlatformDataGLES 中
+// vector<Gles::SpecConstantInfo> specInfo_;  (ShaderModuleGLES 的成员)
 ```
 
 ### 3.3 spirv_cross 生成 GLSL
@@ -651,22 +668,15 @@ void PostProcessSource(BindMaps& map, const ShaderModulePlatformDataGLES& modPla
         bindings.push_back(pos);
     }
 
-    // 步骤2: 修复 SSBO bindings
-    if (!bindings.empty()) {
+// 步骤2: 修复 SSBO bindings
         if (!modPlat.sbSets.empty()) {
             binder storageBindings { map.maxStorageBinding, map.map, bindings };
             FixBindings(SSBO_KEYS, storageBindings, modPlat.sbSets, source);
-            // 每个 SSBO: binding = 11 → binding = X
-            // X = maxStorageBinding++ (递增分配)
-        }
 
         // 步骤3: 修复 Storage Image bindings
         if (!modPlat.ciSets.empty()) {
             binder imageBindings { map.maxImageBinding, map.map, bindings };
             FixBindings(IMAGE_KEYS, imageBindings, modPlat.ciSets, source);
-            // 每个 Storage Image: binding = 11 → binding = Y
-            // Y = maxImageBinding++ (递增分配)
-        }
 
         // 步骤4: 验证所有 binding = 11 已被修复
 #if (RENDER_VALIDATION_ENABLED == 1)
@@ -681,50 +691,69 @@ void PostProcessSource(BindMaps& map, const ShaderModulePlatformDataGLES& modPla
 **FixBindings 实现细节：**
 
 ```cpp
-void FixBindings(
-    const string_view* keys, size_t keyCount,
-    binder& bindings,
-    const vector<ShaderModulePlatformDataGLES::Bind>& sets,
-    string& source)
+// 实际为模板函数: template<typename T, size_t N, typename TypeOfOther>
+void FixBindings(T (&types)[N], binder& map, const TypeOfOther& sbSets, string& source)
 {
-    // 对于每个 set/binding 组合
-    for (const auto& t : sets) {
-        // 构建查找字符串: "s3_b0" 等
-        const auto name = "s" + to_string(t.iSet) + "_b" + to_string(t.iBind);
+    const auto data = source.data();
+    auto view = string_view(source);
+    auto& indices = map.bindingIndices;
 
-        // 在 source 中查找该名称的位置
-        for (const auto& key : keys) {
-            // 查找 " buffer s3_b0" 或 " image2D s3_b0"
-            const auto searchName = string(key) + string(name);
-            auto pos = source.find(searchName);
-            if (pos != string::npos) {
-                // 找到该 SSBO/Image 的位置
-                // 向前查找 "binding = 11"
-                pos = source.rfind(SPECIAL_BINDING, pos);
-                if (pos != string::npos && bindings.bindings.Contains(pos)) {
-                    // 替换 binding 值
-                    SetValue(&source[pos], bindings.nextBinding);
-                    bindings.map[BIND_MAP_4_4(t.iSet, t.iBind)] = bindings.nextBinding + 1;
-                    bindings.nextBinding++;
-                    bindings.bindings.Remove(pos);  // 标记为已处理
-                }
-            }
-        }
-    }
+    // 使用 remove_if 遍历所有 "binding = 11" 位置，匹配后移除
+    indices.erase(std::remove_if(indices.begin(), indices.end(),
+                      [&view, &types, &sbSets, &map, data](const size_t bindingI) {
+                          for (const auto& type : types) {
+                              // 在 binding 位置后查找类型关键字 (如 " buffer ")
+                              const auto eol = view.find('\n', bindingI);
+                              const auto typeI = view.find(type, bindingI);
+                              if ((typeI == string_view::npos) || (typeI > eol)) {
+                                  continue;
+                              }
+                              // 在类型关键字后查找 set/binding 名称 (如 "s3_b0")
+                              const auto afterType = view.substr(typeI + type.size());
+                              for (const auto& t : sbSets) {
+                                  if (!afterType.starts_with(t.name)) {
+                                      continue;
+                                  }
+                                  // 检查名称后是否为分隔符 (空格/分号/下划线)
+                                  if (const char ch = afterType[t.name.size()];
+                                      !std::isspace(static_cast<unsigned char>(ch)) && (ch != ';') && (ch != '_')) {
+                                      continue;
+                                  }
+                                  // 找到匹配，分配新 binding 值
+                                  uint8_t& final = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
+                                  if (final == 0) {
+                                      final = ++map.maxBind;  // 1-based 递增
+                                  }
+                                  SetValue(data + bindingI, final);  // final-1 转为 0-based 写入
+                                  return true;  // 标记该位置已处理
+                              }
+                          }
+                          return false;
+                      }),
+        indices.cend());
 }
+
+// binder 结构体
+struct binder {
+    uint8_t& maxBind;              // 最大 binding 值引用 (1-based)
+    uint8_t* map;                  // BIND_MAP_4_4 映射表
+    vector<size_t>& bindingIndices; // "binding = 11" 位置列表
+};
 
 // SetValue: 替换 binding 数字
 void SetValue(char* source, uint32_t final)
 {
     // binding = 11 → binding = X
     // source 指向 "binding = 11" 的位置
-    const uint32_t tmp = final;
-    const uint32_t div = tmp / 10u;
-    const uint32_t mod = tmp % 10u;
+    // final 是 1-based（来自 map.maxBind + 1），需减 1 转为 0-based
+    const auto tmp = final - 1;
+    PLUGIN_ASSERT(tmp < 99);
+    const auto div = static_cast<char>((tmp / 10u) + '0');
+    const auto mod = static_cast<char>((tmp % 10u) + '0');
 
     // 替换数字位
-    source[10u] = (tmp > 10u) ? ('0' + div) : ' ';
-    source[11u] = '0' + mod;
+    source[10u] = (tmp > 10u) ? div : ' ';
+    source[11u] = mod;
 }
 ```
 
@@ -808,15 +837,16 @@ const DeviceGLES::ShaderCache::Entry& DeviceGLES::CacheShader(int type, const st
 
 ```cpp
 struct ShaderCache {
+    size_t hit;           // Cache hit 统计
+    size_t miss;          // Cache miss 统计
+
     struct Entry {
-        uint64_t hash;       // GLSL 源码 hash
         uint32_t shader;     // glShader object
+        uint64_t hash;       // GLSL 源码 hash
         uint32_t refCount;   // 引用计数
     };
 
     vector<Entry> cache;  // Shader cache entries
-    uint32_t hit;         // Cache hit 统计
-    uint32_t miss;        // Cache miss 统计
 };
 
 // 三个 shader cache
@@ -946,9 +976,9 @@ uint32_t DeviceGLES::CacheProgram(
 ```cpp
 struct ProgramCache {
     uint32_t program;      // glProgram object
-    uint32_t shaderVert;   // Vertex shader object
-    uint32_t shaderFrag;   // Fragment shader object
-    uint32_t shaderComp;   // Compute shader object
+    uint32_t vertShader;   // Vertex shader object
+    uint32_t fragShader;   // Fragment shader object
+    uint32_t compShader;   // Compute shader object
     uint64_t hashVert;     // Vertex shader hash
     uint64_t hashFrag;     // Fragment shader hash
     uint64_t hashComp;     // Compute shader hash
@@ -956,8 +986,8 @@ struct ProgramCache {
 };
 
 vector<ProgramCache> programs_;  // Program cache entries
-uint32_t pCacheHit_;             // Program cache hit 统计
-uint32_t pCacheMiss_;            // Program cache miss 统计
+size_t pCacheHit_;                // Program cache hit 统计
+size_t pCacheMiss_;               // Program cache miss 统计
 ```
 
 ---
@@ -1019,9 +1049,10 @@ void ProcessStorageBlocks(GLuint program, const ShaderModulePlatformDataGLES& pl
 
             if (inUse[0]) {  // 是否在用
                 // 验证 binding 值
-                const uint8_t id = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
-                PLUGIN_ASSERT(id > 0);
-                PLUGIN_ASSERT(inUse[1] == (id - 1));
+                const uint8_t fi = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
+                if (inUse[1] != (fi - 1)) {
+                    PLUGIN_LOG_E("Set %d, binding %d mapped to %d, expected %d", t.iSet, t.iBind, inUse[1], (fi - 1));
+                }
             }
         }
     }
@@ -1040,22 +1071,31 @@ void ProcessUniformBlocks(GLuint program, const ShaderModulePlatformDataGLES& pl
     GLint inUse[propertyCount] { 0 };
 
     for (const auto& t : plat.ubSets) {
-        // 查询 uniform block index
-        const GLuint index = glGetUniformBlockIndex(program, t.name.c_str());
-        if (index != GL_INVALID_INDEX) {
-            glGetProgramResourceiv(
-                program, GL_UNIFORM_BLOCK, index, propertyCount, blockProperties, propertyCount, &len, inUse);
+        if (t.arrayElements > 1) {
+            // 数组 uniform block: 每个元素单独绑定
+            uint8_t& fi = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
+            fi = (uint8_t)(map.maxUniformBinding + 1);
+            for (uint32_t i = 0; i < t.arrayElements; i++) {
+                glUniformBlockBinding(program, i, (GLuint)(fi - 1 + i));
+                ++map.maxUniformBinding;
+            }
+        } else {
+            // 查询 uniform block index
+            const GLuint index = glGetProgramResourceIndex(program, GL_UNIFORM_BLOCK, t.name.c_str());
+            if (index != GL_INVALID_INDEX) {
+                glGetProgramResourceiv(
+                    program, GL_UNIFORM_BLOCK, index, propertyCount, blockProperties, propertyCount, &len, inUse);
 
-            if (inUse[0]) {  // 是否在用
-                // 设置 uniform block binding
-                const uint8_t id = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
-                PLUGIN_ASSERT(id > 0);
-                glUniformBlockBinding(program, index, id - 1);
+                if (inUse[0]) {  // 是否在用
+                    uint8_t& fi = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
+                    if (fi == 0) {
+                        fi = ++map.maxUniformBinding;  // 分配新 binding 值
+                        glUniformBlockBinding(program, index, (GLuint)(fi - 1));
+                    }
+                }
             }
         }
     }
-
-    map.maxUniformBinding = static_cast<uint8_t>(inUse[1] + 1);
 }
 ```
 
@@ -1064,22 +1104,35 @@ void ProcessUniformBlocks(GLuint program, const ShaderModulePlatformDataGLES& pl
 ```cpp
 void ProcessSamplers(GLuint program, const ShaderModulePlatformDataGLES& plat, GLenum flag, BindMaps& map)
 {
+    GLsizei len;
+    const GLenum uniformProperties[] = { flag, GL_LOCATION, GL_ARRAY_SIZE };
+    constexpr auto propertyCount = static_cast<GLsizei>(countof(uniformProperties));
+    GLint inUse[propertyCount] { 0 };
+
     for (const auto& t : plat.cbSets) {
-        // 查询 sampler uniform location
-        const GLint location = glGetUniformLocation(program, t.name.c_str());
-        if (location >= 0) {
-            // 设置 sampler texture unit
-            const uint8_t id = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
-            PLUGIN_ASSERT(id > 0);
-            glUniform1i(location, id - 1);
+        const GLuint index = glGetProgramResourceIndex(program, GL_UNIFORM, t.name.c_str());
+        if (index != GL_INVALID_INDEX) {
+            glGetProgramResourceiv(
+                program, GL_UNIFORM, index, propertyCount, uniformProperties, propertyCount, &len, inUse);
+            if (inUse[0]) {
+                uint8_t& fi = map.map[BIND_MAP_4_4(t.iSet, t.iBind)];
+                if (fi == 0) {
+                    // 分配 texture units 到每个 sampler
+                    GLint units[Gles::ResourceLimits::MAX_SAMPLERS_IN_STAGE];
+                    fi = (uint8_t)(map.maxFinalBinding + 1);
+                    for (int i = 0; i < inUse[2]; i++) {
+                        units[i] = fi + i - 1;
+                    }
+                    map.maxFinalBinding += (uint8_t)inUse[2];
+                    glProgramUniform1iv(program, inUse[1], inUse[2], units);
+                }
+            }
         }
     }
-
-    // 处理 combined sampler-image bindings
-    for (const auto& t : plat.combSets) {
-        // ... 处理分离的 sampler 和 texture units
-    }
 }
+
+// 注意: combined sampler-image bindings 由独立的 ProcessCombinedSamplers() 处理
+// subpass input attachments 由独立的 ProcessSubPassInputs() 处理
 ```
 
 ### 4.5 BuildBindInfos
@@ -1110,23 +1163,24 @@ void BuildBindInfos(Resources& resources, const PipelineLayout& pipelineLayout, 
             tmp.type = b.descriptorType;
             tmp.descriptors.index = uint16_t(resources.descriptorIndexIds.size());
             tmp.descriptors.count = uint16_t(b.descriptorCount);
+            bool add = false;
+            resources.descriptorIndexIds.append(tmp.descriptors.count, {});
+            auto descriptorIndex =
+                array_view(resources.descriptorIndexIds.data() + tmp.descriptors.index, tmp.descriptors.count);
 
-            // 根据类型分发处理
             switch (b.descriptorType) {
-                case CORE_DESCRIPTOR_TYPE_SAMPLER:
-                    // 处理 combined sampler-image
+                case CORE_DESCRIPTOR_TYPE_SAMPLER: {
+                    // 查找与该 sampler 组合的 image binding
                     for (const auto& cs : combSets) {
                         if ((cs.sSet != s.set) || (cs.sBind != b.binding)) {
                             continue;
                         }
-                        // 构建 sampler-image 组合 binding
                         const uint32_t iid = map.map[BIND_MAP_4_4(cs.iSet, cs.iBind)];
                         if (!iid) {
                             continue;
                         }
                         const uint8_t final = map.finalMap[BIND_MAP_4_4(id, iid)];
                         if (final) {
-                            // 添加到 resources.ids
                             for (auto& ids : descriptorIndex) {
                                 if (!ids.count) {
                                     ids.index = uint16_t(resources.ids.size());
@@ -1138,32 +1192,71 @@ void BuildBindInfos(Resources& resources, const PipelineLayout& pipelineLayout, 
                         }
                     }
                     break;
-
-                case CORE_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    // 已经在 ProcessSamplers 中处理
+                }
+                case CORE_DESCRIPTOR_TYPE_SAMPLED_IMAGE: {
+                    // 查找与该 image 组合的 sampler binding
+                    for (const auto& cs : combSets) {
+                        if ((cs.iSet != s.set) || (cs.iBind != b.binding)) {
+                            continue;
+                        }
+                        const uint32_t sid = map.map[BIND_MAP_4_4(cs.sSet, cs.sBind)];
+                        if (!sid) {
+                            continue;
+                        }
+                        const uint8_t final = map.finalMap[BIND_MAP_4_4(sid, id)];
+                        if (final) {
+                            for (auto& ids : descriptorIndex) {
+                                if (!ids.count) {
+                                    ids.index = uint16_t(resources.ids.size());
+                                }
+                                ++ids.count;
+                                resources.ids.push_back(final - 1U);
+                            }
+                            add = true;
+                        }
+                    }
                     break;
-
-                case CORE_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-                case CORE_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                }
                 case CORE_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                    // 添加到 others
-                    others.push_back(tmp);
+                case CORE_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+                case CORE_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+                case CORE_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
+                case CORE_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
+                case CORE_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                case CORE_DESCRIPTOR_TYPE_STORAGE_BUFFER: {
+                    // 直接映射到 binding unit
+                    for (auto& ids : descriptorIndex) {
+                        ids.index = uint16_t(resources.ids.size());
+                        ids.count = 1U;
+                        resources.ids.push_back(id - 1U);
+                    }
                     add = true;
                     break;
-
+                }
+                case CORE_DESCRIPTOR_TYPE_MAX_ENUM:
                 default:
+                    PLUGIN_ASSERT_MSG(false, "Unhandled descriptor type");
                     break;
             }
 
             if (add) {
-                resources.bindInfos.push_back(tmp);
+                if (b.descriptorType == CORE_DESCRIPTOR_TYPE_SAMPLER) {
+                    samplers.push_back(move(tmp));
+                } else {
+                    others.push_back(move(tmp));
+                }
             }
         }
     }
 
-    // 合并 samplers 和 others
-    resources.bindInfos.insert(resources.bindInfos.end(), samplers.begin(), samplers.end());
-    resources.bindInfos.insert(resources.bindInfos.end(), others.begin(), others.end());
+    // samplers 在前，others 在后（有助于 OES 处理）
+    resources.resourceList.reserve(samplers.size() + others.size());
+    for (auto& s : samplers) {
+        resources.resourceList.push_back(move(s));
+    }
+    for (auto& o : others) {
+        resources.resourceList.push_back(move(o));
+    }
 }
 ```
 
@@ -1243,8 +1336,14 @@ bool DefineForSpec(
     for (const auto& c : reflectionInfo) {
         if (c.id == spcid) {
             switch (c.type) {
+                default:
+                    [[fallthrough]]; // INVALID
+                case ShaderSpecialization::Constant::Type::INVALID:
+                    PLUGIN_ASSERT_MSG(false, "Unhandled specialization constant type");
+                    break;
+
                 case ShaderSpecialization::Constant::Type::BOOL:
-                    [[fallthrough]];
+                    [[fallthrough]]; // follow the same procedure as UINT32
 
                 case ShaderSpecialization::Constant::Type::UINT32: {
                     const uint32_t value = *reinterpret_cast<uint32_t*>(offset);
@@ -1633,16 +1732,7 @@ for (GLint i = 0; i < numUniforms; i++) {
 
 ---
 
-## 七、版本历史
-
-| 版本 | 日期 | 描述 |
-|------|------|------|
-| 1.0 | 2025-01-XX | 初始版本 |
-| 1.1 | 2025-05-19 | 添加完整流程架构图、时序图、代码位置引用、常见问题排查 |
-
----
-
-## 八、参考资料
+## 七、参考资料
 
 ### 8.1 代码文件
 

@@ -82,10 +82,10 @@ sampleCountFlags有两种使用模式：
 MSAA渲染流程：
 
 ┌──────────────────────────────────────────────────┐
-│ 1. 图像创建                                      │
+│ 1. 图像创建                                       │
 ├──────────────────────────────────────────────────┤
 │ GpuImageDesc.sampleCountFlags                    │
-│   └─► 创建MSAA纹理 (N samples/pixel)            │
+│   └─► 创建MSAA纹理 (N samples/pixel)              │
 └──────────────────────────────────────────────────┘
                       │
                       ▼
@@ -93,8 +93,8 @@ MSAA渲染流程：
 │ 2. RenderPass配置                                │
 ├──────────────────────────────────────────────────┤
 │ Attachment.sampleCount                           │
-│   └─► 设置RenderPass的MSAA配置                 │
-│       (必须与图像一致)                           │
+│   └─► 设置RenderPass的MSAA配置                    │
+│       (必须与图像一致)                            │
 └──────────────────────────────────────────────────┘
                       │
                       ▼
@@ -102,34 +102,28 @@ MSAA渲染流程：
 │ 3. Pipeline配置                                  │
 ├──────────────────────────────────────────────────┤
 │ multisampleState.rasterizationSamples            │
-│   └─► GPU光栅化配置 (使用N采样进行光栅化)       │
+│   └─► GPU光栅化配置 (使用N采样进行光栅化)          │   
 └──────────────────────────────────────────────────┘
                       │
                       ▼
 ┌──────────────────────────────────────────────────┐
-│ 4. 渲染执行                                      │
+│ 4. 渲染执行                                       │
 ├──────────────────────────────────────────────────┤
 │ GPU渲染                                          │
-│   └─► 每像素存储N个采样值                       │
-│       (深度测试在每个采样点独立执行)             │
+│   └─► 每像素存储N个采样值                          │
+│       (深度测试在每个采样点独立执行)                │
 └──────────────────────────────────────────────────┘
                       │
                       ▼
 ┌──────────────────────────────────────────────────┐
 │ 5. 解析Pass                                      │
 ├──────────────────────────────────────────────────┤
-│ MSAA纹理 ──► Resolve ──► 单采样纹理             │
-│   └─► 平均所有采样值, 用于后续Pass或显示        │
+│ MSAA纹理 ──► Resolve ──► 单采样纹理               │
+│   └─► 平均所有采样值, 用于后续Pass或显示            │
 └──────────────────────────────────────────────────┘
 ```
 
 各环节采样数必须一致，否则导致渲染错误。
-
----
-
-## 概述
-
-`sampleCountFlags` 是 LumeRender 渲染系统中用于控制**多重采样抗锯齿（MSAA - Multi-Sample Anti-Aliasing）**采样数量的关键参数。它决定了每个像素的采样次数，从而影响渲染质量和性能。
 
 ---
 
@@ -184,32 +178,6 @@ using SampleCountFlags = uint32_t;
 
 ---
 
-## 工作原理
-
-### MSAA（Multi-Sample Anti-Aliasing）
-
-**基本原理：**
-1. 每个像素不再是单个颜色值，而是包含多个采样点
-2. 光栅化时，在多个采样点上进行计算
-3. 最终通过**解析（Resolve）**操作，将多个采样点合并为单个像素值
-
-**流程图：**
-```
-几何图元
-   ↓
-光栅化（在多个采样点上）
-   ↓
-深度测试和模板测试（每个采样点独立）
-   ↓
-片段着色器执行（每个像素一次，但访问多个采样）
-   ↓
-解析（Resolve）- 将多个采样合并为单个像素
-   ↓
-最终输出
-```
-
----
-
 ## Vulkan 映射
 
 **文件位置：** `submodules/LumeRender/src/vulkan/gpu_image_vk.cpp:161`
@@ -233,7 +201,7 @@ CORE_SAMPLE_COUNT_64_BIT → VK_SAMPLE_COUNT_64_BIT
 
 ## OpenGL/GLES 映射
 
-**文件位置：** `submodules/LumeRender/src/gles/gpu_image_gles.cpp:105-124`
+**文件位置：** `submodules/LumeRender/src/gles/gpu_image_gles.cpp:103-164`
 
 ```cpp
 void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImagePlatformDataGL& plat)
@@ -313,8 +281,8 @@ void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImage
     "name": "RGBA16Target",
     "format": "r16g16b16a16_sfloat",
     "usageFlags": "color_attachment | input_attachment | transient_attachment",
-    "memoryPropertyFlags": "device_local | lazily_allocated",
-    "sampleCountFlags": "1bit"  // 无MSAA（默认值）
+    "memoryPropertyFlags": "device_local | lazily_allocated"
+    // 注：sampleCountFlags未指定时默认为"1bit"（无MSAA）
 }
 ```
 
@@ -331,7 +299,7 @@ void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImage
 
 ### 解析示例
 
-**文件位置：** `samples/assets_common/app/renderNodeGraphSimpleBackBufferMSAA.json:171-176`
+**文件位置：** `samples/assets_common/app/renderNodeGraphSimpleBackBufferMSAA.json:156-177`
 
 ```json
 {
@@ -374,29 +342,29 @@ void GenerateImageStorage(DeviceGLES& device, const GpuImageDesc& desc, GpuImage
 
 ## GPU 资源缓存优化
 
-**文件位置：** `submodules/LumeRender/src/device/gpu_resource_cache.cpp:42-45`
+**文件位置：** `submodules/LumeRender/src/device/gpu_resource_cache.cpp:33-45`
 
 ```cpp
-// MSAA 特定的使用标志
+constexpr ImageUsageFlags USAGE_FLAGS =
+    ImageUsageFlagBits::CORE_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+    ImageUsageFlagBits::CORE_IMAGE_USAGE_SAMPLED_BIT;
+
 constexpr ImageUsageFlags MSAA_USAGE_FLAGS =
     ImageUsageFlagBits::CORE_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
-    ImageUsageFlagBits::CORE_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+    ImageUsageFlagBits::CORE_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 
-// MSAA 特定的内存标志
+constexpr MemoryPropertyFlags MEMORY_FLAGS =
+    MemoryPropertyFlagBits::CORE_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
 constexpr MemoryPropertyFlags MSAA_MEMORY_FLAGS =
     MemoryPropertyFlagBits::CORE_MEMORY_PROPERTY_DEVICE_LOCAL_BIT |
     MemoryPropertyFlagBits::CORE_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
 
 // 根据采样数量选择不同的标志
 const ImageUsageFlags usageFlags =
-    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT)
-        ? MSAA_USAGE_FLAGS
-        : USAGE_FLAGS;
-
+    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT) ? MSAA_USAGE_FLAGS : USAGE_FLAGS;
 const MemoryPropertyFlags memoryFlags =
-    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT)
-        ? MSAA_MEMORY_FLAGS
-        : MEMORY_FLAGS;
+    (desc.sampleCountFlags > SampleCountFlagBits::CORE_SAMPLE_COUNT_1_BIT) ? MSAA_MEMORY_FLAGS : MEMORY_FLAGS;
 ```
 
 **优化策略：**
@@ -671,17 +639,6 @@ if (props.limits.framebufferColorSampleCounts & VK_SAMPLE_COUNT_4_BIT) {
 
 ## 总结
 
-### sampleCountFlags 作用
-
-| 功能 | 描述 |
-|------|------|
-| **抗锯齿** | 控制每个像素的采样数量 |
-| **渲染质量** | 采样数量越高，边缘越平滑 |
-| **内存开销** | 线性增加（采样数量 × 基础内存） |
-| **性能开销** | 填充率降低（1/采样数量） |
-
-### 推荐配置
-
 | 平台 | 推荐值 | 原因 |
 |------|---------|------|
 | **高端PC** | 4x 或 8x | 追求质量 |
@@ -689,22 +646,13 @@ if (props.limits.framebufferColorSampleCounts & VK_SAMPLE_COUNT_4_BIT) {
 | **移动设备** | 2x | 限制内存和功耗 |
 | **VR设备** | 1x（无MSAA） | 帧率优先 |
 
-### 关键要点
-
-1. ✅ MSAA 显著增加内存和带宽开销
-2. ✅ 仅在需要抗锯齿时使用
-3. ✅ 后处理和UI不需要 MSAA
-4. ✅ 使用延迟分配优化内存
-5. ✅ 根据设备性能动态调整
-6. ✅ 解析后及时释放 MSAA 资源
-
 ---
 
 ## 参考代码
 
 - **定义：** `submodules/LumeRender/api/render/device/gpu_resource_desc.h:212-229`
 - **Vulkan 实现：** `submodules/LumeRender/src/vulkan/gpu_image_vk.cpp:161`
-- **GLES 实现：** `submodules/LumeRender/src/gles/gpu_image_gles.cpp:105-124`
-- **资源缓存：** `submodules/LumeRender/src/device/gpu_resource_cache.cpp:42-45`
-- **相机配置：** `submodules/Lume3D/src/render/node/render_node_default_camera_controller.cpp:442`
+- **GLES 实现：** `submodules/LumeRender/src/gles/gpu_image_gles.cpp:103-164`
+- **资源缓存：** `submodules/LumeRender/src/device/gpu_resource_cache.cpp:33-45`
+- **相机配置：** `submodules/Lume3D/src/render/node/render_node_default_camera_controller.cpp:483`
 - **MSAA 示例：** `samples/assets_common/app/renderNodeGraphSimpleBackBufferMSAA.json`

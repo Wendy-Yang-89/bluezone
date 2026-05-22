@@ -1,6 +1,6 @@
 # Shader变体继承机制详解
 
-## 胃景与问题引入
+## 背景与问题引入
 
 ### Shader变体概念
 
@@ -190,6 +190,7 @@ GetShaderHandle 变体查找流程:
 在 `ShaderManager::GetShaderHandle` 函数中，查找顺序为：
 
 ```cpp
+// shader_manager.cpp:1026-1045
 // 1. 首先尝试 ownBaseShaderHandle
 if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
     slotHandle = GetBaseShaderMatchedSlotHandle(
@@ -221,7 +222,7 @@ if ((!slotHandle) && (RenderHandleUtil::IsValid(addBaseShaderHandle))) {
 
 这两个字段在以下数据结构中定义：
 
-### ComputeMappings::Data
+### ComputeMappings::Data（`shader_manager.h:293-304`）
 ```cpp
 struct ComputeMappings {
     struct Data {
@@ -229,12 +230,15 @@ struct ComputeMappings {
         RenderHandle ownBaseShaderHandle; // link to own uri for all variants
         RenderHandle addBaseShaderHandle; // link to separate base shader where it will add its variant
         uint32_t renderSlotId { INVALID_SM_INDEX };
-        // ... 其他字段
+        uint32_t pipelineLayoutIndex { INVALID_SM_INDEX };
+        uint32_t reflectionPipelineLayoutIndex { INVALID_SM_INDEX };
+        uint32_t categoryId { INVALID_SM_INDEX };
+        uint64_t frameIndex { 0 };
     };
 };
 ```
 
-### GraphicsMappings::Data
+### GraphicsMappings::Data（`shader_manager.h:309-324`）
 ```cpp
 struct GraphicsMappings {
     struct Data {
@@ -242,7 +246,11 @@ struct GraphicsMappings {
         RenderHandle ownBaseShaderHandle; // link to own uri for all variants
         RenderHandle addBaseShaderHandle; // link to separate base shader where it will add its variant
         uint32_t renderSlotId { INVALID_SM_INDEX };
-        // ... 其他字段
+        uint32_t pipelineLayoutIndex { INVALID_SM_INDEX };
+        uint32_t reflectionPipelineLayoutIndex { INVALID_SM_INDEX };
+        uint32_t vertexInputDeclarationIndex { INVALID_SM_INDEX };
+        uint32_t graphicsStateIndex { INVALID_SM_INDEX };
+        // ...
     };
 };
 ```
@@ -261,11 +269,11 @@ struct GraphicsMappings {
 ### 示例1: ownBaseShaderHandle
 ```
 BasicShader (基础着色器)
-    ├── ownBaseShaderHandle = null
+    ├── ownBaseShader = "BasicShader" (自动设置为自身URI)
     └── 变体: LightingVariant
-            ├── ownBaseShaderHandle = BasicShader
+            ├── ownBaseShader = "BasicShader" (自动设置为自身URI)
             └── 变体: ShadowVariant
-                    └── ownBaseShaderHandle = BasicShader
+                    └── ownBaseShader = "BasicShader" (自动设置为自身URI)
 ```
 
 ### 示例2: addBaseShaderHandle
@@ -289,45 +297,62 @@ ToneMapping
 
 **Shader层次结构**：
 ```
-core3d_dm_fw.shader (基础Forward Shader)
-    ├── ownBaseShaderHandle = null (自己是基础)
-    └── 变体: core3d_dm_fw_lloit.shader
-            ├── ownBaseShaderHandle = core3d_dm_fw
-            └── 渲染透明物体 (LLOIT算法)
-
-    └── 变体: core3d_dm_fw_wboit.shader
-            ├── ownBaseShaderHandle = core3d_dm_fw
-            └── 渲染透明物体 (WBOIT算法)
+core3d_dm_fw.shader (基础Forward Shader，包含所有变体)
+    ├── Variant: OPAQUE_FW
+    │   ├── ownBaseShader = "3dshaders://shader/core3d_dm_fw.shader" (自动设置)
+    │   └── renderSlot = CORE3D_RS_DM_FW_OPAQUE
+    │
+    ├── Variant: TRANSLUCENT_FW_LLOIT
+    │   ├── ownBaseShader = "3dshaders://shader/core3d_dm_fw.shader" (自动设置)
+    │   └── renderSlot = CORE3D_RS_DM_FW_TRANSLUCENT_LLOIT
+    │
+    └── Variant: TRANSLUCENT_FW_WBOIT
+        ├── ownBaseShader = "3dshaders://shader/core3d_dm_fw.shader" (自动设置)
+        └── renderSlot = CORE3D_RS_DM_FW_TRANSLUCENT_WBOIT
 ```
 
+注意：所有变体都在同一个 `core3d_dm_fw.shader` 文件中定义。
+`ownBaseShader` 由 `shader_data_loader.cpp` 在加载时自动设置为该shader的URI（line 162），
+而非通过JSON字段配置。
+
 **Shader资源文件位置**：
-- 基础Shader: `assets/3d/shaders/shader/core3d_dm_fw.frag`
-- LLOIT变体: `assets/3d/shaders/shader/core3d_dm_fw_lloit.frag`
-- WBOIT变体: `assets/3d/shaders/shader/core3d_dm_fw_wboit.frag`
-- PipelineLayout: `assets/3d/pipelinelayouts/core3d_dm_fw_lloit.shaderpl`
+- 主Shader文件: `assets/3d/shaders/shader/core3d_dm_fw.shader`
+- Fragment SPV: `assets/3d/shaders/shader/core3d_dm_fw.frag.spv`
+- LLOIT Fragment SPV: `assets/3d/shaders/shader/core3d_dm_fw_lloit.frag.spv`
+- WBOIT Fragment SPV: `assets/3d/shaders/shader/core3d_dm_fw_wboit.frag.spv`
+- LLOIT PipelineLayout: `assets/3d/pipelinelayouts/core3d_dm_fw_lloit.shaderpl`
 
 **代码路径分析**（ShaderManager）：
 
 ```cpp
-// shader_manager.cpp:1028-1030
-// GetShaderHandle查找逻辑
-if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
-    slotHandle = GetBaseShaderMatchedSlotHandle(
-        hashToShaderVariant_, computeShaderMappings_.clientData,
-        ownBaseShaderHandle, renderSlotId);
+// shader_manager.cpp:1027-1035 (Compute Shader查找逻辑)
+if (handleType == RenderHandleType::COMPUTE_SHADER_STATE_OBJECT) {
+    if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
+        slotHandle = GetBaseShaderMatchedSlotHandle(
+            hashToShaderVariant_, computeShaderMappings_.clientData,
+            ownBaseShaderHandle, renderSlotId);
+    }
+    if ((!slotHandle) && (RenderHandleUtil::IsValid(addBaseShaderHandle))) {
+        slotHandle = GetBaseShaderMatchedSlotHandle(
+            hashToShaderVariant_, computeShaderMappings_.clientData,
+            addBaseShaderHandle, renderSlotId);
+    }
 }
 ```
 
 **工作流程**：
 
-1. **Shader加载阶段** (`ShaderManager::LoadShader`)：
-   - 加载 `core3d_dm_fw_lloit.shader`
-   - 解析Shader JSON配置，获取 `ownBaseShaderHandle` 引用
-   - 建立 ShaderHandle → BaseShaderHandle 的映射关系
+1. **Shader加载阶段** (`ShaderLoader::CreateGraphicsShader`)：
+   - 加载 `core3d_dm_fw.shader`
+   - 解析Shader JSON中的所有变体（包括LLOIT和WBOIT变体）
+   - 每个变体的 `ownBaseShader` 自动设置为当前shader的URI
+   - 如果JSON中指定了 `baseShader`，则设置 `addBaseShader`
+   - 建立 baseShaderHandle + renderSlotId → ShaderHandle 的哈希映射
 
 2. **Shader查询阶段** (`ShaderManager::GetShaderHandle`)：
-   - 查询 `CORE3D_RS_DM_FW_TRANSLUCENT` RenderSlot
-   - 首先尝试 `ownBaseShaderHandle` → 查找 `core3d_dm_fw`
+   - 查询 `CORE3D_RS_DM_FW_TRANSLUCENT_LLOIT` RenderSlot
+   - 首先尝试直接匹配（renderSlotId相同则直接返回）
+   - 否则尝试 `ownBaseShaderHandle` → 查找 `core3d_dm_fw` 的变体
    - 如果找到匹配的变体（LLOIT），返回ShaderHandle
    - 如果未找到，尝试 `addBaseShaderHandle`（备用）
 
@@ -347,33 +372,39 @@ if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
 #### 1. GetShaderHandle（查找Shader）
 
 ```cpp
-// shader_manager.cpp:990-1008
-RenderHandle ShaderManager::GetShaderHandle(
-    const string_view shaderPath, const uint32_t renderSlotId)
+// shader_manager.cpp:981-1048
+RenderHandleReference ShaderManager::GetShaderHandle(
+    const RenderHandle& handle, const uint32_t renderSlotId) const
 {
+    const RenderHandleType handleType = RenderHandleUtil::GetHandleType(handle);
+    if ((handleType != RenderHandleType::COMPUTE_SHADER_STATE_OBJECT) &&
+        (handleType != RenderHandleType::SHADER_STATE_OBJECT)) {
+        return {}; // early out
+    }
+
+    const uint32_t index = RenderHandleUtil::GetIndexPart(handle);
     RenderHandle ownBaseShaderHandle;
     RenderHandle addBaseShaderHandle;
-
-    // 获取shader的ownBaseShaderHandle
-    if (auto ref = shaderUriToShader.find(shaderPath)) {
+    // check first for own validity and possible base shader handle
+    if ((handleType == RenderHandleType::COMPUTE_SHADER_STATE_OBJECT) &&
+        (index < static_cast<uint32_t>(computeShaderMappings_.clientData.size()))) {
+        const auto& ref = computeShaderMappings_.clientData[index];
+        if (ref.renderSlotId == renderSlotId) {
+            return ref.rhr; // early out
+        }
+        ownBaseShaderHandle = ref.ownBaseShaderHandle;
+        addBaseShaderHandle = ref.addBaseShaderHandle;
+    } else if ((handleType == RenderHandleType::SHADER_STATE_OBJECT) &&
+               (index < static_cast<uint32_t>(shaderMappings_.clientData.size()))) {
+        const auto& ref = shaderMappings_.clientData[index];
+        if (ref.renderSlotId == renderSlotId) {
+            return ref.rhr; // early out
+        }
         ownBaseShaderHandle = ref.ownBaseShaderHandle;
         addBaseShaderHandle = ref.addBaseShaderHandle;
     }
-
-    // 首先尝试ownBaseShaderHandle
-    if (RenderHandleUtil::IsValid(ownBaseShaderHandle)) {
-        slotHandle = GetBaseShaderMatchedSlotHandle(
-            hashToShaderVariant_, clientData,
-            ownBaseShaderHandle, renderSlotId);
-    }
-
-    // 如果未找到，尝试addBaseShaderHandle
-    if (!slotHandle && RenderHandleUtil::IsValid(addBaseShaderHandle)) {
-        slotHandle = GetBaseShaderMatchedSlotHandle(
-            hashToShaderVariant_, clientData,
-            addBaseShaderHandle, renderSlotId);
-    }
-
+    // try to find a match through base shader variant
+    // ... (lambda GetBaseShaderMatchedSlotHandle, see below)
     return slotHandle;
 }
 ```
@@ -384,31 +415,29 @@ RenderHandle ShaderManager::GetShaderHandle(
 
 #### 2. GetBaseShaderMatchedSlotHandle（匹配RenderSlot）
 
+此函数为 `GetShaderHandle` 内的lambda（`shader_manager.cpp:1011-1024`）：
+
 ```cpp
-// shader_manager.cpp:665-684
-RenderHandle ShaderManager::GetBaseShaderMatchedSlotHandle(
-    const unordered_map<uint64_t, ShaderVariantData>& hashToShaderVariant,
-    const ShaderVariantClientData& clientData,
-    const RenderHandle baseShaderHandle,
-    const uint32_t renderSlotId)
-{
-    // 根据baseShaderHandle查找所有变体
-    for (const auto& variant : hashToShaderVariant) {
-        if (variant.second.baseShaderHandle == baseShaderHandle) {
-            // 检查RenderSlot是否匹配
-            if (variant.second.renderSlotId == renderSlotId) {
-                return variant.second.shaderHandle;
-            }
+auto GetBaseShaderMatchedSlotHandle = [](const auto& hashToShaderVariant, const auto& clData,
+                                          const RenderHandle baseShaderHandle, const uint32_t renderSlotId) {
+    PLUGIN_ASSERT(RenderHandleUtil::IsValid(baseShaderHandle));
+
+    RenderHandleReference rhr;
+    const uint64_t hash = HashHandleAndSlot(baseShaderHandle, renderSlotId);
+    if (const auto iter = hashToShaderVariant.find(hash); iter != hashToShaderVariant.cend()) {
+        const uint32_t arrayIndex = RenderHandleUtil::GetIndexPart(iter->second);
+        if (arrayIndex < clData.size() && (clData[arrayIndex].renderSlotId == renderSlotId)) {
+            rhr = clData[arrayIndex].rhr;
         }
     }
-    return {}; // 未找到
-}
+    return rhr;
+};
 ```
 
-**关键点**：
-- 遍历所有Shader变体
-- 查找匹配baseShaderHandle和renderSlotId的变体
-- 返回具体的ShaderHandle
+**关键点：**
+- 使用 `HashHandleAndSlot` 计算baseShaderHandle与renderSlotId的哈希
+- 在 `hashToShaderVariant` 哈希表中查找（非遍历，O(1)查找）
+- 验证找到的索引和renderSlotId是否匹配
 
 ---
 
@@ -466,7 +495,7 @@ RenderHandle shaderHandle = shaderMgr.GetShaderHandle(shaderPath, renderSlotId);
 **Shader配置**：
 ```
 core3d_dm_fw.shader
-    ├── ownBaseShaderHandle = null
+    ├── ownBaseShader = "3dshaders://shader/core3d_dm_fw.shader" (自动设置)
     ├── RenderSlot配置:
     │   ├── CORE3D_RS_DM_FW_OPAQUE (opaque渲染)
     │   ├── CORE3D_RS_DM_DEPTH (深度预渲染)
@@ -508,7 +537,7 @@ for (auto& slot : materialRenderSlots) {
             "variantName": "LLOIT",
             "vert": "3dshaders://shader/core3d_dm_fw.vert.spv",
             "frag": "3dshaders://shader/core3d_dm_fw_lloit.frag.spv",
-            "ownBaseShaderHandle": "3dshaders://shader/core3d_dm_fw.shader", // ← 关键配置
+            "baseShader": "3dshaders://shader/other_base.shader",  // ← addBaseShader（外部基础Shader）
             "renderSlot": "CORE3D_RS_DM_FW_TRANSLUCENT_LLOIT"
         }
     ]
@@ -516,8 +545,9 @@ for (auto& slot : materialRenderSlots) {
 ```
 
 **关键字段**：
-- `ownBaseShaderHandle`: 指向基础Shader的URI
-- `renderSlot`: Shader变体关联的RenderSlot ID
+- `baseShader`: 指向外部基础Shader的URI，映射到代码中的 `addBaseShader` 字段
+  （注意：`ownBaseShader` 不通过JSON配置，而是在加载时自动设置为当前shader的URI）
+- `renderSlot`: Shader变体关联的RenderSlot名称
 
 ### PipelineLayout配置（shaderpl）
 
@@ -558,14 +588,13 @@ for (auto& slot : materialRenderSlots) {
 
 **数据结构**：
 ```cpp
-unordered_map<uint64_t, ShaderVariantData> hashToShaderVariant;
+// hashToShaderVariant_ 的类型（shader_manager.h:354）
+BASE_NS::unordered_map<uint64_t, RenderHandle> hashToShaderVariant_;
 
-struct ShaderVariantData {
-    RenderHandle shaderHandle;
-    RenderHandle baseShaderHandle; // ownBaseShaderHandle或addBaseShaderHandle
-    uint32_t renderSlotId;
-    ShaderSpecializationConstantData specialization;
-};
+// key = HashHandleAndSlot(baseShaderHandle, renderSlotId)
+// value = 匹配的ShaderVariant的RenderHandle（类型为SHADER_STATE_OBJECT或COMPUTE_SHADER_STATE_OBJECT）
+// 通过该Handle的index可索引到computeShaderMappings_.clientData或shaderMappings_.clientData
+// 获取对应Data中的rhr、renderSlotId等信息
 ```
 
 ### 2. Shader缓存策略
@@ -625,12 +654,12 @@ RENDER_VALIDATION: Invalid ownBaseShaderHandle for shader: core3d_dm_fw_lloit
 
 | 文件路径 | 功能 |
 |---------|------|
-| `shader_manager.cpp:990-1008` | GetShaderHandle查找逻辑 |
-| `shader_manager.cpp:665-684` | GetBaseShaderMatchedSlotHandle匹配逻辑 |
-| `shader_manager.cpp:1028-1030` | ownBaseShaderHandle优先查找 |
-| `assets/3d/shaders/shader/core3d_dm_fw_lloit.frag` | LLOIT Shader源码 |
-| `assets/3d/pipelinelayouts/core3d_dm_fw_lloit.shaderpl` | LLOIT PipelineLayout配置 |
-| `api/render/device/intf_shader_manager.h` | ShaderManager接口定义 |
+| `shader_manager.cpp:981-1048` | GetShaderHandle查找逻辑 |
+| `shader_manager.cpp:1011-1024` | GetBaseShaderMatchedSlotHandle lambda |
+| `shader_manager.cpp:1026-1045` | ownBaseShaderHandle优先查找 |
+| `shader_manager.h:293-304` | ComputeMappings::Data 定义 |
+| `shader_manager.h:309-324` | GraphicsMappings::Data 定义 |
+| `api/render/device/intf_shader_manager.h:236-239` | ownBaseShader/addBaseShader 字段 |
 
 ---
 

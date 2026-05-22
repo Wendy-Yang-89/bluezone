@@ -124,43 +124,9 @@ float depth = texture(inDepth, uv).r;
 
 ---
 
-## 概述
+## 一、WBOIT Render Node Graph示例
 
-### Input Attachment的处理
-
-**Input Attachment** 是Vulkan特有的概念：读取当前RenderPass中其他Subpass输出的数据。
-
-在GL中模拟：
-- 将Color Attachment绑定为**纹理（Texture）**
-- Shader通过 `sampler2D` 读取，而非Vulkan的 `subpassInput`
-
-```glsl
-// Vulkan Shader:
-layout(input_attachment_index = 0) subpassInput inColor;
-
-// GL Shader（模拟）:
-uniform sampler2D inColor;  // 绑定为纹理
-```
-
----
-
-## 概述
-
-本文档分析LumeRender GL后端的FBO管理和Subpass处理机制，包括FBO创建、attachment绑定、以及Subpass切换流程。
-
----
-
-## 一、Subpass概念
-
-### 1.1 Vulkan Subpass vs GL Backend
-
-| 特性 | Vulkan | GL Backend |
-|------|--------|------------|
-| Subpass概念 | RenderPass内定义，共享资源 | 每个Subpass创建独立FBO |
-| Attachment共享 | 可在同一RenderPass内共享 | 需要通过FBO重新绑定 |
-| Input Attachment | 直接引用同一RenderPass的attachment | 需要绑定为纹理 |
-
-### 1.2 WBOIT Render Node Graph示例
+### 1.1 WBOIT Render Node Graph
 
 ```json
 {
@@ -186,35 +152,51 @@ uniform sampler2D inColor;  // 绑定为纹理
 ### 2.1 GenerateSubPassFBO函数
 
 ```cpp
-LowlevelFramebufferGL::Fbo GenerateSubPassFBO(...)
+uint32_t GenerateSubPassFBO(DeviceGLES& device, LowlevelFramebufferGL& framebuffer,
+    const RenderPassSubpassDesc& sb, const array_view<const BindImage> images,
+    const size_t resolveAttachmentCount, const array_view<const uint32_t> imageMap,
+    bool multisampledRenderToTexture)
 {
     // 1. 创建FBO
     GLuint fbo;
     glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    device.BindFrameBuffer(fbo);
 
-    // 2. 绑定Depth Attachment
-    if (sb.depthAttachmentIndex < images.size()) {
-        BindToFbo(GL_DEPTH_ATTACHMENT, images[sb.depthAttachmentIndex], ...);
-    }
+    GLenum drawBuffers[MAX_COLOR_ATTACHMENT_COUNT] = { GL_NONE };
+    GLenum colorAttachmentCount = 0;
+    const auto views = HighestBit(sb.viewMask);
 
-    // 3. 绑定Color Attachments
+    // 2. 绑定Color Attachments
     for (uint32_t idx = 0; idx < sb.colorAttachmentCount; ++idx) {
         const uint32_t ci = sb.colorAttachmentIndices[idx];
-        drawBuffers[idx] = GL_COLOR_ATTACHMENT0 + idx;  // 映射到连续的attachment
-        BindToFbo(drawBuffers[idx], images[ci], ...);
+        const uint32_t original = (ci < imageMap.size()) ? imageMap[ci] : EMPTY_ATTACHMENT;
+        if (images[ci].image) {
+            drawBuffers[idx] = GL_COLOR_ATTACHMENT0 + colorAttachmentCount;
+            if (original == EMPTY_ATTACHMENT) {
+                BindToFbo(drawBuffers[idx], images[ci], ...);
+            } else {
+                BindToFboMultisampled(drawBuffers[idx], images[original], images[ci], ...);
+            }
+            ++colorAttachmentCount;
+        }
     }
 
-    // 4. 设置DrawBuffers
-    glDrawBuffers(sb.colorAttachmentCount, drawBuffers);
+    // 3. 设置DrawBuffers
+    glDrawBuffers((GLsizei)sb.colorAttachmentCount, drawBuffers);
+
+    // 4. 绑定Depth Attachment
+    if (sb.depthAttachmentCount == 1) {
+        BindToFboMultisampled(bindType, images[original], images[di], ...);
+    }
 
     // 5. 验证FBO
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        PLUGIN_LOG_E("Failed to create subpass FBO");
-        return { 0, 0 };
+    if (!VerifyFBO()) {
+        device.BindFrameBuffer(0U);
+        glDeleteFramebuffers(1, &fbo);
+        fbo = 0U;
     }
 
-    return { fbo, resolveFbo };
+    return fbo;
 }
 ```
 
@@ -252,27 +234,40 @@ bool IsDefaultAttachment(array_view<const BindImage> images, const RenderPassSub
 ```cpp
 void RenderBackendGLES::DoSubPass(uint32_t subPass)
 {
+    const auto& rpd = activeRenderPass_.renderPassDesc;
     const auto& sb = activeRenderPass_.subpasses[subPass];
 
     // 1. 检查是否使用backbuffer
     if (!currentFrameBuffer_->fbos[subPass].fbo && (sb.colorAttachmentCount == 1U)) {
         auto color = rpd.attachmentHandles[sb.colorAttachmentIndices[0]];
-        device_.Activate(color);  // 激活backbuffer
+        device_.Activate(color);
     }
 
     // 2. 绑定FBO
     device_.BindFrameBuffer(currentFrameBuffer_->fbos[subPass].fbo);
+    ClearScissorInit(renderArea_);
 
     // 3. 处理Attachment Clear
-    if (!attachmentCleared_[index]) {
-        HandleDepthAttachment(...);
-        HandleColorAttachments(...);
-        attachmentCleared_[index] = true;
+    if (sb.colorAttachmentCount > 0) {
+        for (uint32_t ci = 0; ci < sb.colorAttachmentCount; ci++) {
+            uint32_t index = sb.colorAttachmentIndices[ci];
+            if (!attachmentCleared_[index]) {
+                attachmentCleared_[index] = true;
+                colorAttachments[ci] = &rpd.attachments[index];
+            }
+        }
+        HandleColorAttachments(array_view(colorAttachments, sb.colorAttachmentCount));
+    }
+    if (sb.depthAttachmentCount) {
+        if (!attachmentCleared_[sb.depthAttachmentIndex]) {
+            attachmentCleared_[sb.depthAttachmentIndex] = true;
+            HandleDepthAttachment(rpd.attachments[sb.depthAttachmentIndex]);
+        }
     }
 }
 ```
 
-**关键文件：** `render_backend_gles.cpp:1395-1460`
+**关键文件：** `render_backend_gles.cpp:1395-1461`
 
 ---
 
@@ -309,12 +304,20 @@ void RenderBackendGLES::DoSubPass(uint32_t subPass)
 ### 4.2 代码实现
 
 ```cpp
+GLenum colorAttachmentCount = 0;
 for (uint32_t idx = 0; idx < sb.colorAttachmentCount; ++idx) {
     const uint32_t ci = sb.colorAttachmentIndices[idx];  // 实际attachment索引
-    drawBuffers[idx] = GL_COLOR_ATTACHMENT0 + idx;        // GL连续映射
-    BindToFbo(drawBuffers[idx], images[ci], ...);
+    if (images[ci].image) {
+        drawBuffers[idx] = GL_COLOR_ATTACHMENT0 + colorAttachmentCount;  // 使用colorAttachmentCount（仅计数有效附件）
+        BindToFbo(drawBuffers[idx], images[ci], ...);
+        ++colorAttachmentCount;
+    } else {
+        drawBuffers[idx] = GL_NONE;  // 无效附件
+    }
 }
 ```
+
+**注意：** `drawBuffers[idx]` 使用的是 `colorAttachmentCount` 而非 `idx`，因为只有有效的（非null）附件才分配连续的GL attachment点。
 
 ---
 

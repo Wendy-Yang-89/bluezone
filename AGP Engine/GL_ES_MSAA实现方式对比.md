@@ -203,9 +203,9 @@ void glBlitFramebuffer(
 
 ### GLES限制
 
-**重要：OpenGL ES不支持 `glReadBuffer` 函数！**
+**注意：OpenGL ES中 `glReadBuffer` 功能有限制！**
 
-这意味着无法指定读取哪个颜色附件。GLES默认只读取 `GL_COLOR_ATTACHMENT0`。
+GLES 3.0+ 支持 `glReadBuffer`，但默认只读取 `GL_COLOR_ATTACHMENT0`。多附件解析时需创建临时FBO逐个绑定，以避免依赖 `glReadBuffer` 切换读取目标。
 
 ### 多附件解析方案
 
@@ -241,19 +241,19 @@ glDeleteFramebuffers(2, frameBuffers);
 ### 代码路径（LumeRender）
 
 ```
-RenderCommandEndRenderPass()
+RenderCommandEndRenderPass() (line 1788)
   ↓
-ResolveMSAA() (line 1631)
+ResolveMSAA() (line 1705)
   ↓
-检查 resolveAttachmentCount > 1
+ResolveMSAAMultiColor() (line 1647) [当 resolveAttachmentCount > 1]
   ↓
-创建临时FBO (line 1650-1653)
+创建临时FBO (line 1651-1653)
   ↓
-逐个附件绑定到GL_COLOR_ATTACHMENT0 (line 1665-1666)
+逐个附件绑定到GL_COLOR_ATTACHMENT0 (line 1670-1690)
   ↓
-glBlitFramebuffer() (line 1668-1671)
+glBlitFramebuffer() (line 1697-1699)
   ↓
-删除临时FBO (line 1675)
+删除临时FBO (line 1702)
 ```
 
 ### 优势
@@ -267,7 +267,6 @@ glBlitFramebuffer() (line 1668-1671)
 1. **性能较差**：多次FBO切换和绑定
 2. **ARM不推荐**：已知驱动问题
 3. **多附件复杂**：需要逐个处理
-4. **drawBuffers索引问题**：当前代码存在bug
 
 ---
 
@@ -379,8 +378,7 @@ vec4 manualResolve(vec2 uv, ivec2 size) {
 
 当隐式解析不可用时：
 1. 使用临时FBO逐附件解析
-2. 修复drawBuffers索引bug（使用idx而非计数器）
-3. 注意ARM性能警告
+2. 注意ARM性能警告
 
 ---
 
@@ -388,14 +386,15 @@ vec4 manualResolve(vec2 uv, ivec2 size) {
 
 | 文件 | 关键函数 | 行号 |
 |------|---------|------|
-| `node_context_pool_manager_gles.cpp` | `FilterRenderPass` | 837-880 |
+| `node_context_pool_manager_gles.cpp` | `FilterRenderPass` | 837-882 |
 | `node_context_pool_manager_gles.cpp` | `BindToFboMultisampled` | 326-394 |
 | `node_context_pool_manager_gles.cpp` | `MapColorAttachments` | 594-623 |
 | `node_context_pool_manager_gles.cpp` | `GenerateSubPassFBO` | 422-488 |
 | `node_context_pool_manager_gles.cpp` | `GetFramebufferHandle` | 748-804 |
-| `render_backend_gles.cpp` | `ResolveMSAA` | 1631-1690 |
-| `gpu_image_gles.cpp` | Renderbuffer创建 | 216-226 |
-| `device_gles.cpp` | 扩展检查 | 1171-1182 |
+| `render_backend_gles.cpp` | `ResolveMSAA` | 1705-1786 |
+| `render_backend_gles.cpp` | `ResolveMSAAMultiColor` | 1647-1703 |
+| `gpu_image_gles.cpp` | Renderbuffer创建 | 203-228 |
+| `device_gles.cpp` | 扩展检查 | 1173-1184 |
 
 ---
 

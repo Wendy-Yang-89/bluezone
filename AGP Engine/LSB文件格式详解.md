@@ -81,20 +81,20 @@ LSB文件二进制结构:
 ├──────────────────────────────────────────────────┤
 │ tag[4]: 'rfl' + version                          │
 │ type: Shader stage flags                         │
-│ offsetPushConstants: 段偏移                      │
-│ offsetSpecializationConstants: 段偏移            │
-│ offsetDescriptorSets: 段偏移                     │
-│ offsetInputs: 段偏移                             │
-│ offsetLocalSize: 段偏移                          │
+│ offsetPushConstants: 段偏移                       │
+│ offsetSpecializationConstants: 段偏移             │
+│ offsetDescriptorSets: 段偏移                      │
+│ offsetInputs: 段偏移                              │
+│ offsetLocalSize: 段偏移                           │
 └──────────────────────────────────────────────────┘
                       │
                       ▼
 ┌──────────────────────────────────────────────────┐
 │ Push Constants段                                 │
 ├──────────────────────────────────────────────────┤
-│ hasConstants: uint8 (是否有push constants)       │
-│ byteSize: uint16 (字节大小)                      │
-│ [数据内容...]                                    │
+│ hasConstants: uint8 (是否有push constants)        │
+│ byteSize: uint16 (字节大小)                       │
+│ [数据内容...]                                     │
 └──────────────────────────────────────────────────┘
                       │
                       ▼
@@ -249,11 +249,11 @@ uint32_t z    // workgroup size z
 
 | 值 | 名称 |
 |----|------|
-| 0 | DIMENSION_RECT |
-| 1 | DIMENSION_1D |
-| 2 | DIMENSION_2D |
-| 3 | DIMENSION_3D |
-| 4 | DIMENSION_CUBE |
+| 0 | DIMENSION_1D |
+| 1 | DIMENSION_2D |
+| 2 | DIMENSION_3D |
+| 3 | DIMENSION_CUBE |
+| 4 | DIMENSION_RECT |
 | 5 | DIMENSION_BUFFER |
 | 6 | DIMENSION_SUBPASS |
 
@@ -289,19 +289,14 @@ def read_uint32(data: bytes, offset: int) -> Tuple[int, int]:
 
 ```python
 def parse_descriptor_set_v1(data, ptr):
-    set_idx = read_uint16(data, ptr)
-    ptr += 2
-    binding_count = read_uint16(data, ptr)
-    ptr += 2
+    set_idx, ptr = read_uint16(data, ptr)
+    binding_count, ptr = read_uint16(data, ptr)
 
     bindings = []
     for _ in range(binding_count):
-        binding = read_uint16(data, ptr)
-        ptr += 2
-        desc_type = read_uint16(data, ptr)
-        ptr += 2
-        desc_count = read_uint16(data, ptr)
-        ptr += 2
+        binding, ptr = read_uint16(data, ptr)
+        desc_type, ptr = read_uint16(data, ptr)
+        desc_count, ptr = read_uint16(data, ptr)
         image_dim = data[ptr]
         ptr += 1
         image_flags = data[ptr]
@@ -406,7 +401,7 @@ python lsb_parser.py path/to/shader.spv.lsb --json --output result.json
 
 ## 十、工具代码位置
 
-解析工具已创建在：`opencode_doc/lsb_parser.py`
+解析工具已创建在：`lsb_parser.py`
 
 ---
 
