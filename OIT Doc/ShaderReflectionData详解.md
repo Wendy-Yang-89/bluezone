@@ -37,33 +37,33 @@
 3. **Reflection 信息丢失：**
    - 从 SPIR-V 转换的 GLSL 不直接保留 descriptor set 信息
    - GLSL 使用传统的 uniform/sampler 命名，而非 Vulkan 的 set/binding 布局
-   - **需要额外的 LSB 文件存储 reflection data**
+   - **需要 LSB 文件存储 reflection data（所有 backend 通用）**
 
 ### 1.2 Shader 文件格式对比
 
 | Backend | Shader 文件 | Reflection 来源 | 加载方式 |
 |---------|------------|----------------|---------|
-| **Vulkan** | `.spv` | SPIR-V 内置 | 直接加载 |
+| **Vulkan** | `.spv` | `.lsb` 文件 | 直接加载 |
 | **OpenGL** | `.spv.gl` | `.lsb` 文件 | spirv_cross 转换 + LSB |
 | **OpenGLES** | `.spv.gles` | `.lsb` 文件 | spirv_cross 转换 + LSB |
 
 **引擎代码证据：**
 
 ```cpp
-// shader_loader.cpp:308-319
+// shader_loader.cpp:303-331
 ShaderLoader::ShaderFile ShaderLoader::LoadShaderFile(const string_view shader, const ShaderStageFlags stageBits)
 {
     ShaderLoader::ShaderFile info;
     IFile::Ptr shaderFile;
     switch (type_) {
         case DeviceBackendType::VULKAN:
-            shaderFile = fileManager_.OpenFile(shader);              // 直接加载 .spv
+            shaderFile = fileManager_.OpenFile(shader);
             break;
         case DeviceBackendType::OPENGLES:
-            shaderFile = fileManager_.OpenFile(shader + ".gles");    // 加载 .spv.gles
+            shaderFile = fileManager_.OpenFile(shader + ".gles");
             break;
         case DeviceBackendType::OPENGL:
-            shaderFile = fileManager_.OpenFile(shader + ".gl");      // 加载 .spv.gl
+            shaderFile = fileManager_.OpenFile(shader + ".gl");
             break;
         default:
             break;
@@ -71,11 +71,13 @@ ShaderLoader::ShaderFile ShaderLoader::LoadShaderFile(const string_view shader, 
     if (shaderFile) {
         info.data = ReadFile(*shaderFile, shader);
 
-        // GL backend 需要额外的 LSB reflection data
         if (IFile::Ptr reflectionFile = fileManager_.OpenFile(shader + ".lsb"); reflectionFile) {
             info.reflectionData = ReadFile(*reflectionFile, shader + ".lsb");
         }
         info.info = { stageBits, info.data, ShaderReflectionData { info.reflectionData } };
+    }
+    else {
+        PLUGIN_LOG_E("shader file not found (%s)", shader.data());
     }
     return info;
 }
@@ -111,10 +113,14 @@ Reflection 数据嵌入在 OpDecorate 指令中：
 
 ```
 LSB (Lume Shader Binary) 二进制结构：
-├── Header
-│   ├── Version
-│   ├── Shader Stage
-│   └── Reflection Data Size
+├── Header (ReflectionHeader)
+│   ├── tag[4]          // 'r','f','l',version (4 bytes)
+│   ├── type            // uint16_t (shader stage type)
+│   ├── offsetPushConstants          // uint16_t
+│   ├── offsetSpecializationConstants  // uint16_t
+│   ├── offsetDescriptorSets         // uint16_t
+│   ├── offsetInputs                 // uint16_t
+│   └── offsetLocalSize              // uint16_t
 ├── Reflection Data
 │   ├── Pipeline Layout
 │   │   ├── Descriptor Set Count
@@ -132,7 +138,7 @@ LSB (Lume Shader Binary) 二进制结构：
 │   └── Vertex Input Attributes (for vertex shaders)
 └── (其他元数据)
 
-LSB 是专门为 GL backend 设计的 reflection 格式，
+LSB 是为所有 backend 提供的 reflection 格式，
 存储了从 SPIR-V 提取的 descriptor set / binding 信息。
 ```
 
@@ -141,15 +147,15 @@ LSB 是专门为 GL backend 设计的 reflection 格式，
 ```
 Shader 编译完整流程：
 ┌─────────────────────────────────────────────┐
-│ 1. Shader 源码 (.glsl)                     │
+│ 1. Shader 源码 (.glsl)                      │
 │    ├── Vertex Shader                        │
 │    ├── Fragment Shader                      │
 │    └── Compute Shader                       │
 └─────────────────────────────────────────────┘
            ↓ glslang / glslangValidator
 ┌─────────────────────────────────────────────┐
-│ 2. SPIR-V 编译 (.spv)                      │
-│    ├── 包含完整的 reflection 信息           │
+│ 2. SPIR-V 编译 (.spv)                       │
+│    ├── 包含完整的 reflection 信息            │
 │    ├── Descriptor Set / Binding 布局        │
 │    ├── Push Constants                       │
 │    ├── Specialization Constants             │
@@ -160,11 +166,11 @@ Shader 编译完整流程：
 │ 3. Reflection Data 提取                     │
 │    ├── spirv-reflect 输出 JSON              │
 │    ├── 用于验证和调试                        │
-│    └── 提供完整的 descriptor 信息           │
+│    └── 提供完整的 descriptor 信息            │
 └─────────────────────────────────────────────┘
            ↓ LumeShaderCompiler
 ┌─────────────────────────────────────────────┐
-│ 4. LSB 文件生成 (.spv.lsb)                 │
+│ 4. LSB 文件生成 (.spv.lsb)                  │
 │    ├── 从 SPIR-V 提取 reflection            │
 │    ├── 存储为 LSB 二进制格式                 │
 │    ├── 包含 Pipeline Layout 信息            │
@@ -173,16 +179,17 @@ Shader 编译完整流程：
            ↓ spirv_cross
 ┌─────────────────────────────────────────────┐
 │ 5. GLSL 转换                                │
-│    ├── .spv.gl (OpenGL GLSL)               │
-│    ├── .spv.gles (OpenGL ES GLSL)          │
-│    ├── 转换 descriptor set 为传统 uniform   │
-│    ├── 转换 binding 为命名 uniform          │
-│    └── 注入 SPIRV_CROSS_CONSTANT_ID_* 定义  │
+│    ├── .spv.gl (OpenGL GLSL)                │
+│    ├── .spv.gles (OpenGL ES GLSL)           │
+│    ├── 转换 descriptor set 为传统 uniform    │
+│    ├── 转换 binding 为命名 uniform           │
+│    └── 注入 SPIRV_CROSS_CONSTANT_ID_* 定义   │
 └─────────────────────────────────────────────┘
 
 最终产物：
 ├── Vulkan backend:
-│   └── shader.spv (直接使用)
+│   ├── shader.spv (直接使用)
+│   └── shader.spv.lsb (Reflection Data)
 │
 └── OpenGL/GLES backend:
     ├── shader.spv.gl / shader.spv.gles (GLSL 源码)
@@ -216,10 +223,10 @@ layout(binding = 0, std140) uniform UniformBufferObject
     mat4 model;
     mat4 view;
     mat4 proj;
-} s0_b0_ubo;  // 命名规则: s{set}_b{binding}_{name}
+} s0_b0;  // 命名规则: s{set}_b{binding}
 
 // Sampler (set=1, binding=0)
-uniform sampler2D s1_b0_texSampler;  // 命名规则: s{set}_b{binding}_{name}
+uniform sampler2D s1_b0;  // 命名规则: s{set}_b{binding}
 
 // 注意：GLSL 中不再有 set 布局，只有 binding
 // LSB 文件中记录了原始的 set/binding 对应关系
@@ -234,13 +241,16 @@ string ShaderModuleGLES::GetGLSL(const ShaderSpecializationConstantDataView& spe
     return SpecializeShaderModule(*this, specData);  // 调用 spirv_cross helper
 }
 
-// spirv_cross_helpers_gles.cpp:127-135
+// spirv_cross_helpers_gles.cpp:127-163
 string Specialize(ShaderStageFlags mask, const string_view shaderTemplate,
     const array_view<const ShaderSpecialization::Constant> info,
     const ShaderSpecializationConstantDataView& data)
 {
-    // 注入 SPIRV_CROSS_CONSTANT_ID_* defines
-    // 处理 specialization constants
+    // 实际函数体约36行，包含：
+    // - 空数据检查
+    // - ShaderStageFlags 匹配
+    // - SPIRV_CROSS_CONSTANT_ID_* define 创建
+    // - InsertDefines() 调用
 }
 ```
 
@@ -255,7 +265,7 @@ string Specialize(ShaderStageFlags mask, const string_view shaderTemplate,
 | SPIR-V | Shader编译时 | Vulkan backend直接使用 |
 | spirv-reflect输出 | 工具分析SPIR-V | 用于验证 |
 | shaderpl文件 | 手动配置 | Pipeline Layout定义 |
-| LSB文件 | LumeShaderCompiler生成 | GL backend使用 |
+| LSB文件 | LumeShaderCompiler生成 | 所有 backend 使用 |
 
 ### 2.2 正确流程
 
@@ -273,7 +283,7 @@ Shader源码 → glslang → SPIR-V（包含实际使用的资源信息）
 
 ---
 
-## 二、问题案例：Set 3类型错误
+## 三、问题案例：Set 3类型错误
 
 ### 2.1 问题现象
 
@@ -331,14 +341,14 @@ Set 3:
 
 ---
 
-## 三、影响分析
+## 四、影响分析
 
 ### 3.1 Vulkan Backend不受影响
 
 **原因：**
 - Vulkan使用shaderpl文件定义PipelineLayout（正确）
 - Vulkan使用SPIR-V中的实际资源（正确）
-- 不依赖LSB reflection data
+- Vulkan也加载LSB reflection data
 
 ### 3.2 GL Backend受影响
 
@@ -354,7 +364,7 @@ Set 3:
 
 ---
 
-## 四、修复方案
+## 五、修复方案
 
 ### 4.1 修复LumeShaderCompiler
 
@@ -376,7 +386,7 @@ Set 3:
 
 ---
 
-## 五、排查方法
+## 六、排查方法
 
 ### 5.1 对比验证流程
 
@@ -402,7 +412,7 @@ Set 3:
 
 ---
 
-## 六、预防措施
+## 七、预防措施
 
 ### 6.1 Shader源码规范
 
@@ -429,32 +439,32 @@ done
 
 ---
 
-## 七、关键文件索引
+## 八、关键文件索引
 
 | 文件 | 功能 |
 |------|------|
 | shaderpl文件 | Pipeline Layout定义 |
-| LSB文件 | Reflection Data（GL backend使用） |
+| LSB文件 | Reflection Data（所有 backend 使用） |
 | SPIR-V文件 | Shader二进制（包含实际资源信息） |
 | `.spv.gl` 文件 | OpenGL GLSL（spirv_cross 转换） |
 | `.spv.gles` 文件 | OpenGL ES GLSL（spirv_cross 转换） |
 
 ---
 
-## 八、相关代码位置
+## 九、相关代码位置
 
 | 代码文件 | 功能 |
 |---------|------|
-| `submodules/LumeRender/src/loader/shader_loader.cpp:308-325` | 根据 backend type 加载不同 shader 文件 |
+| `submodules/LumeRender/src/loader/shader_loader.cpp:303-331` | 根据 backend type 加载不同 shader 文件 |
 | `submodules/LumeRender/src/gles/shader_module_gles.cpp` | GLES shader module 处理 |
 | `submodules/LumeRender/src/gles/spirv_cross_helpers_gles.cpp` | SPIR-V 转 GLSL 辅助函数 |
 | `submodules/LumeRender/api/render/device/intf_device.h:103-110` | DeviceBackendType 定义 |
-| `submodules/LumeRender/api/render/device/intf_shader_manager.h:563,647` | Shader 加载接口 |
+| `submodules/LumeRender/api/render/device/intf_shader_manager.h:566,653` | Shader 加载接口 |
 | `submodules/LumeRender/src/device/shader_reflection_data.cpp` | Reflection Data 处理 |
 
 ---
 
-## 九、实践经验
+## 十、实践经验
 
 1. **新增Shader时**：验证LSB生成正确，对比spirv-reflect输出
 2. **修改Shader源码时**：检查是否有set/binding冲突

@@ -40,7 +40,7 @@ public:
     CORE_NS::Entity fog;                      // 雾组件实体
     SceneShadowType shadowType;               // 阴影类型（PCF/VSM/VARIABLE_PCF）
     float vpcfRadius;                         // Variable PCF半径
-    int32_t vpcfSampleCount;                  // Variable PCF采样数
+    uint32_t vpcfSampleCount;                 // Variable PCF采样数
     SceneShadowQuality shadowQuality;         // 阴影质量（LOW/NORMAL/HIGH/ULTRA）
     SceneShadowSmoothness shadowSmoothness;   // 阴影平滑度（HARD/NORMAL/SOFT）
 
@@ -69,7 +69,7 @@ public:
 | fog | Entity | 8 bytes | 8 | 雾实体引用 |
 | shadowType | uint8_t | 1 byte | 16 | 阴影类型 |
 | vpcfRadius | float | 4 bytes | 20 | Variable PCF半径 |
-| vpcfSampleCount | int32_t | 4 bytes | 24 | Variable PCF采样数 |
+| vpcfSampleCount | uint32_t | 4 bytes | 24 | Variable PCF采样数 |
 | shadowQuality | uint8_t | 1 byte | 28 | 阴影质量 |
 | shadowSmoothness | uint8_t | 1 byte | 29 | 阴影平滑度 |
 | **oitType** | uint8_t | 1 byte | 30 | **OIT类型** |
@@ -362,15 +362,20 @@ private:
 
     // 相机数据集合
     BASE_NS::vector<RenderCamera> cameras_;                // 相机数组
-    BASE_NS::unordered_map<string, uint32_t> nameToCameraIndex_; // 名称到索引映射
+    // 相机查找使用cameras_向量线性搜索，无独立索引映射
 
     // 环境数据集合
     BASE_NS::vector<RenderCamera::Environment> environments_; // 环境数组
 
 public:
     // IRenderDataStore接口实现
+    static constexpr BASE_NS::string_view TYPE_NAME = "RenderDataStoreDefaultCamera";
+    const BASE_NS::string_view GetTypeName() const override {
+        return TYPE_NAME;
+    }
+
     const BASE_NS::string_view GetName() const override {
-        return "RenderDataStoreDefaultCamera";
+        return name_;
     }
 
     const BASE_NS::Uid& GetUid() const override {
@@ -397,12 +402,6 @@ public:
     // 相机管理实现
     void AddCamera(const RenderCamera& camera) override {
         cameras_.push_back(camera);
-        nameToCameraIndex_[camera.name] = static_cast<uint32_t>(cameras_.size() - 1);
-
-        // 检测OIT相机标志
-        if (camera.flags & RenderCamera::CAMERA_FLAG_OIT_BIT) {
-            hasActiveOitCameras_ = true;
-        }
     }
 
     BASE_NS::array_view<const RenderCamera> GetCameras() const override {
@@ -416,10 +415,10 @@ public:
 **设计要点**：
 
 1. **数据存储**：使用 `vector` 存储相机和环境数据
-2. **名称映射**：`unordered_map` 提供名称快速查找
-3. **OIT检测**：AddCamera时自动检测OIT_BIT标志
+2. **相机查找**：Camera查找使用`cameras_`向量线性搜索，无独立索引映射
+3. **OIT检测**：`hasActiveOitCameras_` 由外部通过 `SetHasActiveOitCameras()` 设置，`AddCamera()` 内部不包含OIT检测逻辑
 4. **默认值**：`oitType_` 默认为 `WBOIT`，最优性能
-5. **线程安全**：接口声明 "Not internally synchronized"，调用者需保证同步
+5. **接口方法**：`GetTypeName()` 返回 `TYPE_NAME`（即 `"RenderDataStoreDefaultCamera"`），而 `GetName()` 返回实例名 `name_`
 
 ---
 
@@ -501,15 +500,15 @@ struct RenderCamera {
     CameraCullType cullType;                    // 剔除类型
     SampleCountFlags msaaSampleCountFlags;      // MSAA采样数
 
-    BASE_NS::string name;                       // 相机名称
+    BASE_NS::fixed_string<RENDER_NS::RenderDataConstants::MAX_DEFAULT_NAME_LENGTH> name;  // 相机名称
 
     // 后处理和渲染节点图
     RENDER_NS::RenderHandleReference customRenderNodeGraph; // 自定义渲染节点图
     BASE_NS::string customRenderNodeGraphFile;  // 自定义渲染节点图文件
 
     // 颜色和深度目标定制
-    TargetCustomization colorTargetCustomization[8];
-    TargetCustomization depthTargetCustomization;
+    TargetUsage colorTargetCustomization[8];
+    TargetUsage depthTargetCustomization;
 };
 ```
 
@@ -1586,7 +1585,7 @@ void InplaceLinkedListOit(vec4 color, vec3 fragCoord, uint imageWidth) {
 **关键常量**：
 
 ```glsl
-// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_structures_common.h
+// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_inplace_oit_common.h:35,44
 
 #define OIT_MAX_FRAGMENT_COUNT 16            // 每像素最大片段数
 
@@ -3096,21 +3095,8 @@ InplaceLinkedListOit(color, gl_FragCoord.xyz, imageWidth);
 void RenderDataStoreDefaultCamera::AddCamera(const RenderCamera& camera) {
     cameras_.push_back(camera);
 
-    // 检测OIT类型冲突
-    if (camera.flags & RenderCamera::CAMERA_FLAG_OIT_BIT) {
-        // 检查是否与其他相机OIT类型一致
-        if (!cameras_.empty() && oitType_ != camera.oitType) {
-            // OIT类型不一致：警告用户
-            PLUGIN_LOG_W("Multiple cameras with different OIT types detected");
-            PLUGIN_LOG_W("Camera 1: OIT type %u, Camera 2: OIT type %u",
-                oitType_, camera.oitType);
-
-            // 强制使用第一个相机的OIT类型
-            // 或提示用户统一配置
-        }
-
-        hasActiveOitCameras_ = true;
-    }
+    // 注意：RenderCamera结构体无oitType字段，OIT类型检测不在AddCamera中进行
+    // OIT类型由RenderConfigurationComponent::oitType统一管理
 }
 ```
 
@@ -3119,32 +3105,26 @@ void RenderDataStoreDefaultCamera::AddCamera(const RenderCamera& camera) {
 ```cpp
 // 强制统一OIT类型
 void ValidateOitConsistency() {
-    OitType firstOitType = OitType::PPLL;
-    bool firstFound = false;
+    // RenderCamera结构体无oitType字段，OIT类型由RenderConfigurationComponent统一管理
+    // 所有相机共享同一个oitType，无需逐相机检测类型冲突
+    OitType activeOitType = oitType_;
 
     for (auto& camera : cameras_) {
         if (camera.flags & RenderCamera::CAMERA_FLAG_OIT_BIT) {
-            if (!firstFound) {
-                firstOitType = camera.oitType;
-                firstFound = true;
+            // 根据统一的oitType设置shaderFlags
+            camera.shaderFlags &= ~CAMERA_SHADER_OIT_PPLL_BIT;
+            camera.shaderFlags &= ~CAMERA_SHADER_OIT_WBOIT_BIT;
+            camera.shaderFlags &= ~CAMERA_SHADER_OIT_AT_BIT;
+
+            if (activeOitType == OitType::PPLL) {
+                camera.shaderFlags |= CAMERA_SHADER_OIT_PPLL_BIT;
+            } else if (activeOitType == OitType::WBOIT) {
+                camera.shaderFlags |= CAMERA_SHADER_OIT_WBOIT_BIT;
             } else {
-                if (camera.oitType != firstOitType) {
-                    // 强制设置为第一个相机的OIT类型
-                    camera.shaderFlags &= ~CAMERA_SHADER_OIT_PPLL_BIT;
-                    camera.shaderFlags &= ~CAMERA_SHADER_OIT_WBOIT_BIT;
-                    camera.shaderFlags &= ~CAMERA_SHADER_OIT_AT_BIT;
-
-                    if (firstOitType == OitType::PPLL) {
-                        camera.shaderFlags |= CAMERA_SHADER_OIT_PPLL_BIT;
-                    } else if (firstOitType == OitType::WBOIT) {
-                        camera.shaderFlags |= CAMERA_SHADER_OIT_WBOIT_BIT;
-                    } else {
-                        camera.shaderFlags |= CAMERA_SHADER_OIT_AT_BIT;
-                    }
-
-                    PLUGIN_LOG_I("Camera OIT type unified to: %u", firstOitType);
-                }
+                camera.shaderFlags |= CAMERA_SHADER_OIT_AT_BIT;
             }
+
+            PLUGIN_LOG_I("Camera OIT shader flags set according to unified type: %u", activeOitType);
         }
     }
 }
@@ -3154,7 +3134,7 @@ void ValidateOitConsistency() {
 
 
 ```glsl
-// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_structures_common.h
+// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_inplace_oit_common.h:35,44
 
 // 常量定义（GLSL和C++双版本）
 #ifdef VULKAN
@@ -3222,55 +3202,9 @@ constexpr float Z_FACTOR_BASE { 0.03 };
 ---
 
 
-**实现位置**：`lume/Lume_3D/src/render/node/render_node_default_material_render_slot_lloit.cpp:174`
+**实现位置**：`lume/Lume_3D/src/render/node/render_node_default_material_render_slot_lloit.cpp:174-241`
 
-```cpp
-void RenderNodeDefaultMaterialRenderSlotLloit::InitLloitGpuResources(
-    const uint32_t width, const uint32_t height) {
-
-    // 1. 记录分辨率和最大节点数
-    lliotGpuResources_.imgResX = width;
-    lliotGpuResources_.imgResY = height;
-    lliotGpuResources_.maxNodeCount = width * height * MAX_FRAGMENT_COUNT;
-
-    // 2. 获取GPU资源管理器
-    auto& gpuResourceMgr = renderNodeContextMgr_->GetGpuResourceManager();
-
-    // 3. 创建链表头缓冲（每像素一个uint32）
-    uint32_t headBufferSize = width * height * sizeof(uint32_t);
-    auto headBufferDesc = GetLinkedListBufferDesc(headBufferSize);
-
-    if (!RenderHandleUtil::IsValid(lliotGpuResources_.LinkedListHeadBuffer_.GetHandle())) {
-        lliotGpuResources_.LinkedListHeadBuffer_ =
-            gpuResourceMgr.Create("linked_list_head_buffer", headBufferDesc);
-    } else {
-        lliotGpuResources_.LinkedListHeadBuffer_ =
-            gpuResourceMgr.Create(lliotGpuResources_.LinkedListHeadBuffer_, headBufferDesc);
-    }
-
-    // 4. 创建链表节点缓冲（每个节点12字节）
-    uint32_t nodeBufferSize = maxNodeCount * sizeof(LinkedListNode);
-    auto nodeBufferDesc = GetLinkedListBufferDesc(nodeBufferSize);
-
-    if (!RenderHandleUtil::IsValid(lliotGpuResources_.LinkedListBuffer_.GetHandle())) {
-        lliotGpuResources_.LinkedListBuffer_ =
-            gpuResourceMgr.Create("linked_list_buffer", nodeBufferDesc);
-    } else {
-        lliotGpuResources_.LinkedListBuffer_ =
-            gpuResourceMgr.Create(lliotGpuResources_.LinkedListBuffer_, nodeBufferDesc);
-    }
-
-    // 5. 创建计数器缓冲（8字节）
-    uint32_t counterBufferSize = sizeof(LinkedListCounter);
-    auto counterBufferDesc = GetLinkedListBufferDesc(counterBufferSize);
-
-    lliotGpuResources_.LinkedListCounterBuffer_ =
-        gpuResourceMgr.Create("linked_list_counter_buffer", counterBufferDesc);
-
-    // 6. 初始化缓冲数据
-    InitializeLloitBuffers();
-}
-```
+> **注意**：实际实现使用 `GetLinkedListBufferDesc()` 辅助函数创建缓冲描述，包含 `RenderHandleUtil::IsValid()` 检查用于缓冲复用，使用 `array_view<const uint8_t>` 进行 `CopyDataToBuffer` 数据传输，处理反射平面缓冲命名（如 `"linked_list_head_buffer"` / `"linked_list_head_buffer_reflection"`），并在初始化完成后清除staging缓冲。以上简化代码仅为逻辑示意，详见源文件。
 
 ---
 
@@ -3311,12 +3245,13 @@ void InitializeLloitBuffers() {
 GpuBufferDesc GetLinkedListBufferDesc(uint32_t bufferSize) {
     return GpuBufferDesc {
         .byteSize = bufferSize,
-        .usageFlags = BUFFER_USAGE_SHADER_DEVICE_STORAGE_BIT |
-                      BUFFER_USAGE_TRANSFER_DESTINATION_BIT |
-                      BUFFER_USAGE_TRANSFER_SOURCE_BIT,
-        .memoryUsageFlags = MEMORY_USAGE_DEVICE_LOCAL_BIT,
-        .bindFlags = BUFFER_BIND_SHADER_DEVICE_STORAGE_BIT,
+        .usageFlags = CORE_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                      CORE_BUFFER_USAGE_TRANSFER_DST_BIT |
+                      CORE_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .memoryUsageFlags = CORE_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        .bindFlags = CORE_BUFFER_USAGE_STORAGE_BUFFER_BIT,
         .bindingType = BINDING_TYPE_BUFFER,
+        .creationFlags = CORE_ENGINE_BUFFER_CREATION_DYNAMIC_BARRIERS,
     };
 }
 ```
@@ -3324,7 +3259,7 @@ GpuBufferDesc GetLinkedListBufferDesc(uint32_t bufferSize) {
 ---
 
 
-**实现位置**：`render_node_default_material_render_slot_lloit.cpp:247`
+**实现位置**：`render_node_default_material_render_slot_lloit.cpp:252`
 
 ```cpp
 void RenderNodeDefaultMaterialRenderSlotLloit::BindLloitBuffer(
@@ -3439,7 +3374,7 @@ if (分辨率改变?) then (是)
     note right
         maxNodeCount = newWidth * newHeight * 16
         headBufferSize = newWidth * newHeight * 4
-        nodeBufferSize = maxNodeCount * 12
+        nodeBufferSize = maxNodeCount * 16
     end note
     :创建新GPU缓冲;
     :初始化缓冲数据;
@@ -3838,9 +3773,7 @@ vec4 UnpackVec4Half2x16(uvec2 packedColor) {
 **策略1：降低MAX_FRAGMENT_COUNT**
 
 ```cpp
-// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_structures_common.h
-
-// 原配置：MAX_FRAGMENT_COUNT = 16
+// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_inplace_oit_common.h:35,44
 constexpr uint32_t OIT_MAX_FRAGMENT_COUNT { 16U };
 
 // 优化配置：根据场景动态调整
@@ -4043,14 +3976,14 @@ void LazyInitialization() {
 |---------|------|------|
 | `lume/Lume_3D/api/3d/render/intf_render_data_store_default_camera.h` | RenderDataStore接口 | 150+ |
 | `lume/Lume_3D/api/3d/render/render_data_defines_3d.h` | RenderCamera结构定义 | 800+ |
-| `lume/Lume_3D/src/render/datastore/render_data_store_default_camera.cpp` | RenderDataStore实现 | 600+ |
+| `lume/Lume_3D/src/render/datastore/render_data_store_default_camera.cpp` | RenderDataStore实现 | 224 |
 
 ---
 
 
 | 文件路径 | 内容 | 行数 |
 |---------|------|------|
-| `lume/Lume_3D/src/render/node/render_node_default_material_render_slot_lloit.h` | LLOIT渲染节点头文件 | 80+ |
+| `lume/Lume_3D/src/render/node/render_node_default_material_render_slot_lloit.h` | LLOIT渲染节点头文件 | 297 |
 | `lume/Lume_3D/src/render/node/render_node_default_material_render_slot_lloit.cpp` | LLOIT渲染节点实现 | 1200+ |
 
 ---
@@ -4058,8 +3991,8 @@ void LazyInitialization() {
 
 | 文件路径 | 内容 | 行数 |
 |---------|------|------|
-| `lume/Lume_3D/api/3d/shaders/common/3d_dm_structures_common.h` | GPU数据结构定义 | 300+ |
-| `lume/Lume_3D/api/3d/shaders/common/3d_dm_oit_layout_common.h` | SSBO布局定义 | 100+ |
+| `lume/Lume_3D/api/3d/shaders/common/3d_dm_structures_common.h` | GPU数据结构定义 | 777 |
+| `lume/Lume_3D/api/3d/shaders/common/3d_dm_oit_layout_common.h` | SSBO布局定义 | 51 |
 | `lume/Lume_3D/api/3d/shaders/common/3d_dm_inplace_oit_common.h` | OIT算法实现（PPLL/AT） | 260+ |
 | `lume/Lume_3D/assets/3d/shaders/shader/core3d_dm_fw_wboit.frag` | WBOIT Pass 1着色器 | 40+ |
 | `lume/Lume_3D/assets/3d/shaders/shader/core3d_dm_fw_lloit.frag` | LLOIT Pass 1着色器 | 37 |
@@ -4069,7 +4002,7 @@ void LazyInitialization() {
 
 
 ```cpp
-// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_structures_common.h
+// 路径: lume/Lume_3D/api/3d/shaders/common/3d_dm_inplace_oit_common.h:35,44
 
 constexpr uint32_t OIT_MAX_FRAGMENT_COUNT { 16U };           // 每像素最大片段数
 constexpr uint32_t OIT_MAX_VISIBILITY_NODE_COUNT { 8U };    // AT最大可见性节点数
@@ -4131,7 +4064,7 @@ constexpr float CORE3D_HDR_FLOAT_CLAMP_MAX_VALUE { 64512.0 };  // HDR最大值
 title OIT架构层次映射
 
 rectangle "**场景API层**" as API {
-    :CameraComponent.SetOitType();
+    :RenderConfigurationComponent.oitType;
     :RenderConfigurationComponent;
 }
 

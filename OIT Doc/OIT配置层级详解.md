@@ -81,6 +81,7 @@ DEFINE_PROPERTY(float, alphaCutoff, "Alpha Cutoff", 0, VALUE(1.0f))
 enum SceneShadowType : uint8_t {
     PCF = 0,
     VSM = 1,
+    VARIABLE_PCF = 2,
 };
 
 enum SceneShadowQuality : uint8_t {
@@ -90,7 +91,7 @@ enum SceneShadowQuality : uint8_t {
     ULTRA = 3,
 };
 
-enum SceneOITType : uint8_t {
+enum SceneOitType : uint8_t {
     PPLL = 0,  // Per-Pixel Linked List
     WBOIT = 1, // Weighted Blended OIT
     AT = 2,    // Adaptive Transparency
@@ -103,7 +104,7 @@ enum SceneRenderingFlagBits : uint8_t {
 
 **特点：**
 - ✅ 场景级别的渲染配置
-- ✅ 已有 `SceneOITType` 枚举（PPLL、WBOIT、AT）
+- ✅ 已有 `SceneOitType` 枚举（PPLL、WBOIT、AT）
 - ✅ 已有阴影类型和质量配置
 - ✅ 影响整个场景的渲染方式
 
@@ -217,9 +218,9 @@ for (const auto& info: gRenderNodes) {
 
 | 算法 | 全称 | 特点 | 复杂度 | 内存占用 |
 |------|--------|------|----------|----------|
-| **PPLL** | Per-Pixel Linked List | 每像素存储链表 | 高 | 中 |
-| **WBOIT** | Weighted Blended OIT | 加权混合，存储深度和颜色 | 中 | 高 |
-| **AT** | Adaptive Transparency | 自适应透明度压缩 | 低 | 低 |
+| **PPLL** | Per-Pixel Linked List | 每像素存储链表 | 高 | 高 |
+| **WBOIT** | Weighted Blended OIT | 加权混合，存储深度和颜色 | 低 | 低 |
+| **AT** | Adaptive Transparency | 自适应透明度压缩 | 中 | 高 |
 
 ### 3.3 OIT 的渲染特性
 
@@ -283,7 +284,7 @@ for (const auto& info: gRenderNodes) {
 - ✅ 影响整个场景的渲染方式
 - ✅ 适合配置全局渲染技术
 - ✅ 与 OIT 的全局特性匹配
-- ✅ 已有 `SceneOITType` 枚举（PPLL、WBOIT、AT）
+- ✅ 已有 `SceneOitType` 枚举（PPLL、WBOIT、AT）
 - ✅ 已有类似的场景配置（阴影类型、阴影质量）
 
 **缺点：**
@@ -316,7 +317,7 @@ for (const auto& info: gRenderNodes) {
 **文件位置：** `api/3d/ecs/components/render_configuration_component.h`
 
 ```cpp
-enum SceneOITType : uint8_t {
+enum SceneOitType : uint8_t {
     /* Per-Pixel Linked List. Blending transparent objects though order sorted by stored Linked lists. */
     PPLL = 0,
     /* Weighted Blended Order Independent Transprency. Blending transparent objects with tailored weight function. */
@@ -332,7 +333,7 @@ enum SceneRenderingFlagBits : uint8_t {
 ```
 
 **关键发现：**
-- ✅ `SceneOITType` 枚举已经存在！
+- ✅ `SceneOitType` 枚举已经存在！
 - ✅ 包含三种 OIT 算法：PPLL、WBOIT、AT
 - ✅ 只需要添加一个启用标志
 
@@ -362,7 +363,7 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
     configHandle->renderingFlags = RenderConfigurationComponent::SceneRenderingFlagBits::ENABLE_OIT_BIT;
 
     // 设置 OIT 算法类型
-    configHandle->OITType = RenderConfigurationComponent::SceneOITType::WBOIT;
+    configHandle->oitType = RenderConfigurationComponent::SceneOitType::WBOIT;
 
     // 指定 OIT 渲染管线（可选）
     configHandle->customRenderNodeGraphFile = "assets://app/oit_rendernodegraph.json";
@@ -383,18 +384,18 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 
 ### 6.2 推荐选择
 
-**应该放在：`RenderDataStoreDefaultScene`**
+**应该放在：`IRenderDataStoreDefaultCamera`**
 
 **理由：**
 
 1. **OIT 配置是场景级别的**
-   - `RenderDataStoreDefaultScene` 专门用于场景配置
+   - `IRenderDataStoreDefaultCamera` 专门用于相机配置
    - `RenderDataStoreDefaultCamera` 用于相机配置
    - `RenderDataStoreDefaultMaterial` 用于材质配置
 
 2. **OIT 影响整个渲染管线**
    - 需要在渲染系统级别访问 OIT 配置
-   - `RenderSystem` 可以通过 `IRenderDataStoreDefaultScene` 访问场景配置
+   - `RenderSystem` 可以通过 `IRenderDataStoreDefaultCamera` 访问相机配置
 
 3. **与现有架构一致**
    - 阴影配置（`shadowType`、`shadowQuality`）在场景配置中
@@ -407,11 +408,11 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 ```
 用户设置 OIT 配置
    ↓
-RenderConfigurationComponent (SceneRenderingFlagBits::ENABLE_OIT_BIT, SceneOITType::WBOIT)
+RenderConfigurationComponent (SceneRenderingFlagBits::ENABLE_OIT_BIT, SceneOitType::WBOIT)
    ↓
-RenderDataStoreDefaultScene (存储场景配置)
+IRenderDataStoreDefaultCamera / RenderDataStoreDefaultCamera (存储相机配置)
    ↓
-RenderSystem (读取场景配置)
+RenderSystem (读取相机配置)
    ↓
 根据 OIT 标志选择渲染管线
    ↓
@@ -446,10 +447,10 @@ enum SceneRenderingFlagBits : uint8_t {
 };
 ```
 
-#### 8.2.2 已有的 SceneOITType 枚举（无需修改）
+#### 8.2.2 已有的 SceneOitType 枚举（无需修改）
 
 ```cpp
-enum SceneOITType : uint8_t {
+enum SceneOitType : uint8_t {
     PPLL = 0,   // Per-Pixel Linked List
     WBOIT = 1,  // Weighted Blended OIT
     AT = 2,     // Adaptive Transparency
@@ -458,7 +459,7 @@ enum SceneOITType : uint8_t {
 
 ### 8.3 Render Data Store
 
-**推荐：`RenderDataStoreDefaultScene`**
+**推荐：`IRenderDataStoreDefaultCamera`**
 
 ### 8.4 使用示例
 
@@ -477,8 +478,8 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
         RenderConfigurationComponent::SceneRenderingFlagBits::ENABLE_OIT_BIT;
 
     // 设置 OIT 算法类型
-    configHandle->OITType =
-        RenderConfigurationComponent::SceneOITType::WBOIT;
+    configHandle->oitType =
+        RenderConfigurationComponent::SceneOitType::WBOIT;
 
     // 指定 OIT 渲染管线（可选）
     configHandle->customRenderNodeGraphFile =
@@ -488,7 +489,7 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 // 禁用 OIT
 if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
     configHandle->renderingFlags = 0;
-    configHandle->OITType = RenderConfigurationComponent::SceneOITType::PPLL;
+    configHandle->oitType = RenderConfigurationComponent::SceneOitType::PPLL;
 }
 ```
 
@@ -503,7 +504,7 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 | ✅ **符合现有架构设计** | 与阴影配置（shadowType、shadowQuality）在同一层级 |
 | ✅ **场景级别的配置** | 影响整个场景的渲染方式，符合 OIT 的特性 |
 | ✅ **便于统一管理** | RenderSystem 可以统一访问和管理场景配置 |
-| ✅ **支持多种 OIT 算法** | 已有 SceneOITType 枚举，支持 PPLL、WBOIT、AT |
+| ✅ **支持多种 OIT 算法** | 已有 SceneOitType 枚举，支持 PPLL、WBOIT、AT |
 | ✅ **易于扩展** | 可以添加 OIT 相关的配置参数（如 buffer 大小） |
 | ✅ **与 OIT 示例一致** | OIT 示例使用自定义 render node graph，符合场景配置模式 |
 
@@ -524,7 +525,7 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 
 1. 打开文件：`api/3d/ecs/components/render_configuration_component.h`
 2. 在 `SceneRenderingFlagBits` 枚举中添加 `ENABLE_OIT_BIT`
-3. 确认 `SceneOITType` 枚举存在（已存在）
+3. 确认 `SceneOitType` 枚举存在（已存在）
 
 ### 10.2 修改 RenderSystem（如果需要）
 
@@ -552,7 +553,7 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 | 文件 | 说明 |
 |------|------|
 | `api/3d/ecs/components/render_configuration_component.h` | RenderConfigurationComponent 定义 |
-| `api/3d/render/intf_render_data_store_default_scene.h` | IRenderDataStoreDefaultScene 接口 |
+| `api/render/intf_render_data_store_default_camera.h` | IRenderDataStoreDefaultCamera 接口 |
 | `src/ecs/systems/render_system.h` | RenderSystem 实现 |
 | `samples/multiplatform/oit/src/oit.cpp` | OIT 示例实现 |
 | `samples/multiplatform/oit/assets/app/rendernodegraphs/baseline.rng` | OIT Render Node Graph 示例 |
@@ -567,13 +568,13 @@ if (auto configHandle = renderConfigManager->Write(sceneEntity); configHandle) {
 
 **需要添加：**
 1. 在 `SceneRenderingFlagBits` 枚举中添加 `ENABLE_OIT_BIT = (1 << 1)`
-2. 使用已有的 `SceneOITType` 枚举（PPLL、WBOIT、AT）
+2. 使用已有的 `SceneOitType` 枚举（PPLL、WBOIT、AT）
 
-**Render Data Store：** `RenderDataStoreDefaultScene`
+**Render Data Store：** `IRenderDataStoreDefaultCamera`
 
 **数据流：**
 ```
-RenderConfigurationComponent → RenderDataStoreDefaultScene → RenderSystem → 渲染管线
+RenderConfigurationComponent → IRenderDataStoreDefaultCamera → RenderSystem → 渲染管线
 ```
 
 **关键优势：**
