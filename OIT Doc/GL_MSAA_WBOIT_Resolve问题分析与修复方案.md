@@ -53,13 +53,7 @@ if (images[ci].image) {
 - 解析FBO：`GL_COLOR_ATTACHMENT0`→resolve[0]，`GL_COLOR_ATTACHMENT1`→resolve[1]，`GL_COLOR_ATTACHMENT2`→resolve[2]
 - `glBlitFramebuffer`：color[2] → resolve[1] **错误**（应为 color[2] → resolve[2]）
 
-**关键观察：** 同文件的`InvalidateColor`函数（`node_context_pool_manager_gles.cpp`）使用了正确的方式：
-
-```cpp
-invalidateAttachment[static_cast<size_t>(colorCount)] = GL_COLOR_ATTACHMENT0 + ci;
-```
-
-此处`ci`是循环索引，直接用作`GL_COLOR_ATTACHMENT0 + ci`，保留了正确的附件映射。这与`GenerateSubPassFBO`和`GenerateResolveFBO`中使用的计数器方法不一致，证实计数器方法是一个bug。
+**关键观察：** `InvalidateColor`函数（`render_backend_gles.cpp:1624`）使用`GL_COLOR_ATTACHMENT0 + ci`（循环索引），与`GenerateSubPassFBO`/`GenerateResolveFBO`的计数器方法不一致。但在当前计数器布局下，FBO实际附件位置是压缩的，`InvalidateColor`的索引式定位同样会错位——只有在修复计数器为`idx`后，两者才能同时正确。详见 `Potential Issues/drawBuffers配置错误详解.md`。
 
 ### 2. glBlitFramebuffer多附件行为（关键问题）
 
