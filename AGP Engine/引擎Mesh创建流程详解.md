@@ -88,7 +88,7 @@ struct Geometry {
 
 ```
 ringAngle  = π × (ring / (rings - 1))         ∈ [0, π]
-sectorAngle = 2π × (sector / (sectors - 1))    ∈ [0, 2π)
+sectorAngle = 2π × (sector / (sectors - 1))    ∈ [0, 2π]
 ```
 
 笛卡尔坐标转换：
@@ -137,7 +137,7 @@ u = sector / (sectors - 1)     ∈ [0, 1]
 v = ring   / (rings - 1)       ∈ [0, 1]
 ```
 
-v=0 对应南极，v=1 对应北极，u沿经度方向展开。
+v=0 对应南极，v=1 对应北极，u沿经度方向展开。u=0与u=1位置重合（经度接缝），这是纹理映射的常见seam。
 
 ### 3.5 索引生成
 
@@ -155,11 +155,32 @@ const uint32_t nextS   = (sector + 1) % sectors;
 每个(ring, sector)处的四边形由当前行和下一行的两个相邻顶点构成：
 
 ```
-curRow+nextS ──── nextRow+nextS
-     │  ╲  T2  ╱  │
-     │   ╲    ╱    │
-     │  T1 ╲ ╱     │
-curRow+sector ──── nextRow+sector
+nextRow+sector ──────── nextRow+nextS
+     │╲                       │
+     │ ╲                      │
+     │  ╲                     │
+     │   ╲                    │
+     │    ╲                   │
+     │     ╲                  │
+     │      ╲                 │
+     │       ╲                │
+     │        ╲               │
+     │         ╲              │
+     │          ╲             │
+     │    T1     ╲            │
+     │            ╲     T2    │
+     │             ╲          │
+     │              ╲         │
+     │               ╲        │
+     │                ╲       │
+     │                 ╲      │
+     │                  ╲     │
+     │                   ╲    │
+     │                    ╲   │
+     │                     ╲  │
+     │                      ╲ │
+     │                       ╲│
+curRow+sector ──────── curRow+nextS
 ```
 
 `nextS = (sector + 1) % sectors` 实现经度方向的环形闭合。
@@ -550,13 +571,13 @@ CreateInstance<IMeshBuilder>
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         用户层调用                                      │
-│   meshUtil.GenerateSphere(ecs, "sphere", material, 0.5f, 32, 32)      │
+│                         用户层调用                                       │
+│   meshUtil.GenerateSphere(ecs, "sphere", material, 0.5f, 32, 32)        │
 └──────────────────────────────┬──────────────────────────────────────────┘
                                │
                                ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  第一层：几何数据生成                                                    │
+│  第一层：几何数据生成                                                     │
 │                                                                         │
 │   参数: radius=0.5, rings=32, sectors=32                                │
 │          │                                                              │
@@ -575,38 +596,38 @@ CreateInstance<IMeshBuilder>
 │                  │                                                      │
 │                  ▼                                                      │
 │   输出数据:                                                              │
-│   ┌────────────────┐  ┌────────────────┐  ┌──────────┐  ┌───────────┐ │
-│   │ vertices       │  │ normals        │  │ uvs      │  │ indices   │ │
-│   │ Vec3 × 1024    │  │ Vec3 × 1024    │  │ Vec2×1024│  │ uint32    │ │
-│   │ 12 bytes each  │  │ 12 bytes each  │  │ 8 each   │  │ × 5952    │ │
-│   └───────┬────────┘  └───────┬────────┘  └────┬─────┘  └─────┬─────┘ │
-└───────────┼───────────────────┼────────────────┼──────────────┼────────┘
+│   ┌────────────────┐  ┌────────────────┐  ┌──────────┐  ┌───────────┐   │
+│   │ vertices       │  │ normals        │  │ uvs      │  │ indices   │   │
+│   │ Vec3 × 1024    │  │ Vec3 × 1024    │  │ Vec2×1024│  │ uint32    │   │
+│   │ 12 bytes each  │  │ 12 bytes each  │  │ 8 each   │  │ × 5952    │   │
+│   └───────┬────────┘  └───────┬────────┘  └────┬─────┘  └─────┬─────┘   │
+└───────────┼───────────────────┼────────────────┼──────────────┼─────────┘
             │                   │                │              │
             ▼                   ▼                │              │
-┌───────────────────────────────────────────────┐│              │
-│  CalculateTangents                             ││              │
-│  输入: indices, vertices, normals, uvs         ││              │
-│  输出: tangents (Vec4 × 1024)                  ││              │
-└───────────────────────┬───────────────────────┘│              │
+┌──────────────────────────────────────────────┐ │              │
+│  CalculateTangents                           │ │              │
+│  输入: indices, vertices, normals, uvs       │ │              │
+│  输出: tangents (Vec4 × 1024)                │ │              │
+└───────────────────────┬──────────────────────┘ │              │
                         │                        │              │
                         ▼                        ▼              ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  第二层：IMeshBuilder管线                                                │
 │                                                                         │
 │   ┌─────────────────────────────────────────────────────────┐           │
-│   │  FillData<T> 类型 → DataBuffer 映射                     │           │
+│   │  FillData<T> 类型 → DataBuffer 映射                      │           │
 │   │                                                         │           │
 │   │  vector<Vec3> → DataBuffer{R32G32B32_SFLOAT, 12, ptr}   │           │
-│   │  vector<Vec2> → DataBuffer{R32G32_SFLOAT,     8,  ptr}   │           │
-│   │  vector<Vec4> → DataBuffer{R32G32B32A32_SFLOAT,16, ptr}  │           │
-│   │  vector<uint32>→ DataBuffer{R32_UINT,         4,  ptr}   │           │
+│   │  vector<Vec2> → DataBuffer{R32G32_SFLOAT,     8,  ptr}  │           │
+│   │  vector<Vec4> → DataBuffer{R32G32B32A32_SFLOAT,16, ptr} │           │
+│   │  vector<uint32>→ DataBuffer{R32_UINT,         4,  ptr}  │           │
 │   └────────────────────────┬────────────────────────────────┘           │
 │                            │                                            │
 │                            ▼                                            │
 │   ┌─────────────────────────────────────────────────────────┐           │
-│   │  InitializeBuilder                                       │           │
-│   │  1. IRenderContext → IShaderManager → VID                │           │
-│   │  2. CreateInstance<IMeshBuilder>                         │           │
+│   │  InitializeBuilder                                      │           │
+│   │  1. IRenderContext → IShaderManager → VID               │           │
+│   │  2. CreateInstance<IMeshBuilder>                        │           │
 │   │  3. Initialize(VID, submeshCount=1)                     │           │
 │   │  4. AddSubmesh({material, 1024, 5952, UINT16, ...})     │           │
 │   │  5. Allocate() — GPU缓冲区分配                           │           │
@@ -614,18 +635,18 @@ CreateInstance<IMeshBuilder>
 │                            │                                            │
 │                            ▼                                            │
 │   ┌─────────────────────────────────────────────────────────┐           │
-│   │  FillBuilder                                             │           │
+│   │  FillBuilder                                            │           │
 │   │  SetVertexData(0, positions, normals, uvs, _, tangents) │           │
-│   │  CalculateAABB(0, positions)                             │           │
-│   │  SetIndexData(0, indices)                                │           │
+│   │  CalculateAABB(0, positions)                            │           │
+│   │  SetIndexData(0, indices)                               │           │
 │   └────────────────────────┬────────────────────────────────┘           │
 │                            │                                            │
 │                            ▼                                            │
 │   ┌─────────────────────────────────────────────────────────┐           │
-│   │  CreateMesh                                              │           │
-│   │  builder.CreateMesh(ecs)  → Mesh Entity                  │           │
-│   │  IUriComponentManager->Set(entity, "sphere")             │           │
-│   │  INameComponentManager->Set(entity, "sphere")            │           │
+│   │  CreateMesh                                             │           │
+│   │  builder.CreateMesh(ecs)  → Mesh Entity                 │           │
+│   │  IUriComponentManager->Set(entity, "sphere")            │           │
+│   │  INameComponentManager->Set(entity, "sphere")           │           │
 │   └────────────────────────┬────────────────────────────────┘           │
 │                            │                                            │
 └────────────────────────────┼────────────────────────────────────────────┘
@@ -636,12 +657,12 @@ CreateInstance<IMeshBuilder>
 │                                                                         │
 │   GenerateEntity(ecs, "sphere", meshHandle)                             │
 │   │                                                                     │
-│   │  Mesh Entity ──包装──▶ Renderable Node Entity                       │
+│   │  Mesh Entity ──包装──▶ Renderable Node Entity                      │
 │   │                                                                     │
 │   │  ┌──────────────────────────────┐                                   │
 │   │  │  Node Entity 组件构成         │                                   │
-│   │  │  ├─ NodeComponent            │  场景图节点（变换、层级）            │
-│   │  │  ├─ RenderMeshComponent      │  渲染引用（指向Mesh + Material）    │
+│   │  │  ├─ NodeComponent            │  场景图节点（变换、层级）           │
+│   │  │  ├─ RenderMeshComponent      │  渲染引用（指向Mesh + Material）   │
 │   │  │  └─ ...                      │                                   │
 │   │  └──────────────────────────────┘                                   │
 │   │                                                                     │
