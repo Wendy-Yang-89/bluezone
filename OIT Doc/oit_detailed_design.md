@@ -1491,24 +1491,22 @@ if ((CORE_CAMERA_FLAGS & CORE_CAMERA_OIT_WBOIT_BIT) == CORE_CAMERA_OIT_WBOIT_BIT
 │ HDR colorFactor = clamp(maxColor × α × INV_HDR_MAX, α, 1.0) │
 └────────┬────────────────────────────────────────────────────┘
          ▼
-┌────────────────────────┐
-│ 深度权重:              │
-│ z = depth × Z_SCALE    │
-│ weight = colorFactor × │
-│   clamp(0.03/(ε+z⁴),  │
-│         1e-2, 3e3)     │
-└────────┬───────────────┘
+┌──────────────────────────────────────────────────────┐
+│ 深度权重:                                             │
+│ z = depth × Z_SCALE                                  │
+│ weight = colorFactor × clamp(0.03/(ε+z⁴), 1e-2, 3e3) │
+└────────┬─────────────────────────────────────────────┘
          ▼
 ┌────────────────────────┐
 │ 预乘alpha:             │
 │ color.rgb *= color.a   │
 └────────┬───────────────┘
          ▼
-┌────────────────────────────┐
-│ MRT输出:                   │
-│ accumulation = color*weight│
-│ revealage    = color.a     │
-└────────────────────────────┘
+┌─────────────────────────────┐
+│ MRT输出:                    │
+│ accumulation = color*weight │
+│ revealage    = color.a      │
+└─────────────────────────────┘
 ```
 
 ### 6.2.3 权重计算（InplaceWeightedOit）
@@ -1611,44 +1609,42 @@ A_final = 1.0 - clamp(reveal, 0.0, 1.0)
 ### 6.2.4.1 Pass 2 流程图
 
 ```
-┌─────────────────────────────┐
-│    全屏着色器执行            │
-└──────────────┬──────────────┘
-               ▼
-┌─────────────────────────────┐
-│ 读取revealage缓冲           │
-└──────────────┬──────────────┘
-               ▼
-       ┌──────────────┐
-       │reveal≥0.9999?│
-       └──┬───────┬───┘
-        是│       │否
-          ▼       ▼
-┌──────────┐ ┌──────────────────┐
-│outColor= │ │读取accumulation  │
-│vec4(0.0) │ └────────┬─────────┘
-└──────────┘          ▼
-            ┌──────────────────┐
-            │溢出检测:         │
-            │isinf(abs(accum))?│
-            └──┬───────────┬──┘
-             是│           │否
-               ▼           ▼
-┌───────────────────┐ ┌──────────────────┐
-│accum.rgb=vec3(a)  │ │正常处理          │
-└─────────┬─────────┘ └────────┬─────────┘
-          └──────┬─────────────┘
-                 ▼
-┌──────────────────────────────┐
-│ C_final = accum.rgb /        │
-│           max(accum.a, ε)    │
-│ A_final = 1.0 - clamp(      │
-│           reveal, 0, 1)      │
-└──────────────┬───────────────┘
-               ▼
-┌──────────────────────────────┐
-│ outColor = vec4(C, A)        │
-└──────────────────────────────┘
+     ┌─────────────────────────────┐
+     │    全屏着色器执行            │
+     └──────────────┬──────────────┘
+                    ▼
+     ┌─────────────────────────────┐
+     │ 读取revealage缓冲            │
+     └──────────────┬──────────────┘
+                    ▼
+    ┌─────────────────────────────────┐
+    │         reveal≥0.9999?          │
+    └──────┬───────────────────┬──────┘
+         是│                   │否
+           ▼                   ▼
+┌────────────────────┐ ┌────────────────┐
+│outColor = vec4(0.0)│ │读取accumulation│
+└────────────────────┘ └───────┬────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │  溢出检测:            │
+                    │  isinf(abs(accum))?  │
+                    └──┬────────────────┬──┘
+                     是│                │否
+                       ▼                ▼
+             ┌───────────────────┐ ┌─────────┐
+             │ accum.rgb=vec3(a) │ │ 正常处理 │
+             └─────────┬─────────┘ └────┬────┘
+                       └───────┬────────┘
+                               ▼
+           ┌───────────────────────────────────────┐
+           │ C_final = accum.rgb / max(accum.a, ε) │
+           │ A_final = 1.0 - clamp(reveal, 0, 1)   │
+           └───────────────────┬───────────────────┘
+                               ▼
+                   ┌───────────────────────┐
+                   │ outColor = vec4(C, A) │
+                   └───────────────────────┘
 ```
 
 ### 6.2.5 WBOIT关键特性
@@ -1764,53 +1760,48 @@ else if ((CORE_CAMERA_FLAGS & CORE_CAMERA_OIT_AT_BIT) == CORE_CAMERA_OIT_AT_BIT)
 ### 6.3.4.1 Pass 2 流程图
 
 ```
-┌─────────────────────────────┐
-│    全屏着色器执行            │
-└──────────────┬──────────────┘
-               ▼
-┌─────────────────────────────┐
-│    读取链表头                │
-└──────────────┬──────────────┘
-               ▼
-       ┌────────────────┐
-       │head!=INVALID?  │
-       └──┬─────────┬───┘
-        是│         │否
-          ▼         ▼
-┌────────────────┐ ┌──────┐
-│初始化可见性    │ │discard│
-│节点(9个)       │ └──────┘
-│vDepths=1.1     │
-│vTrans=1.0      │
-└───────┬────────┘
-        ▼
-┌─────────────────────────────┐
-│ ╔═════════════════════════╗ │
-│ ║ 第1次遍历:构建可见性函数║ │
-│ ╚═════════════════════╤═══╝ │
-│  遍历链表→深度测试→   │     │
-│  InsertFragment()     │     │
-│  vCount>9?            │     │
-│  ├─是:FindMinError()  │     │
-│  │  压缩可见性函数    │     │
-│  └─否:继续           │     │
-└───────────────┬─────────────┘
-                ▼
-┌─────────────────────────────┐
-│ ╔═════════════════════════╗ │
-│ ║ 第2次遍历:采样混合      ║ │
-│ ╚═════════════════════╤═══╝ │
-│  遍历链表→深度测试→   │     │
-│  FindFragment()→获取vis│    │
-│  color.rgb +=         │     │
-│    nodeColor.rgb × vis│     │
-└───────────────┬─────────────┘
-                ▼
-┌──────────────────────────────┐
-│ transmittance = vTrans[vCnt-1]│
-│ outColor = vec4(rgb, trans)   │
-│ 清空链表: Head=INVALID, idx=0│
-└──────────────────────────────┘
+               ┌─────────────────────────────┐
+               │        全屏着色器执行        │
+               └──────────────┬──────────────┘
+                              ▼
+               ┌─────────────────────────────┐
+               │          读取链表头          │
+               └──────────────┬──────────────┘
+                              ▼
+                 ┌──────────────────────────┐
+                 │      head!=INVALID?      │
+                 └───┬──────────────────┬───┘
+                   是│                  │否
+                     ▼                  ▼
+          ┌─────────────────────┐  ┌─────────┐
+          │ 初始化可见性节点(9个) │  │ discard │
+          │ vDepths=1.1         │  └─────────┘
+          │ vTrans=1.0          │
+          └──────────┬──────────┘
+                     ▼
+  ┌─────────────────────────────────────┐
+  │     ╔═════════════════════════╗     │
+  │     ║ 第1次遍历:构建可见性函数  ║     │
+  │     ╚═════════════════════════╝     │
+  │  遍历链表→深度测试→InsertFragment()  │    
+  │  vCount>9?                          │
+  │  ├─是:FindMinError() + 压缩可见性函数 │     
+  │  └─否:继续                           │     
+  └──────────────────┬──────────────────┘
+                     ▼
+┌─────────────────────────────────────────┐
+│       ╔═════════════════════════╗       │
+│       ║    第2次遍历:采样混合    ║       │
+│       ╚═════════════════════════╝       │
+│  遍历链表→深度测试→FindFragment()→获取vis │
+│  color.rgb += nodeColor.rgb × vis       │
+└────────────────────┬────────────────────┘
+                     ▼
+    ┌────────────────────────────────┐
+    │ transmittance = vTrans[vCnt-1] │
+    │ outColor = vec4(rgb, trans)    │
+    │ 清空链表: Head=INVALID, idx=0   │
+    └────────────────────────────────┘
 ```
 
 ### 6.3.5 InsertFragment详解（可见性压缩核心）
@@ -2219,54 +2210,54 @@ RenderSystem::Render() 内部逻辑：
 
 ```
 ┌───────────────────────────────────────────────────────────────┐
-│                       场景API层                               │
-│  RenderConfigurationComponent.oitType (PPLL/WBOIT/AT)        │
-│  CameraComponent.PipelineFlagBits::OIT_BIT                   │
-└──────────────────────────┬────────────────────────────────────┘
-                           ▼
+│                       场景API层                                │
+│  RenderConfigurationComponent.oitType (PPLL/WBOIT/AT)         │
+│  CameraComponent.PipelineFlagBits::OIT_BIT                    │
+└───────────────────────────────┬───────────────────────────────┘
+                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                       场景接口层                               │
 │  IRenderDataStoreDefaultCamera                                │
 │    SetOitType() / GetOitType()                                │
 │    SetHasActiveOitCameras()                                   │
-└──────────────────────────┬────────────────────────────────────┘
-                           ▼
+└───────────────────────────────┬───────────────────────────────┘
+                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                       场景实现层                               │
 │  RenderDataStoreDefaultCamera                                 │
 │    oitType_ = WBOIT (默认)                                    │
 │    hasActiveOitCameras_                                       │
-└──────────────────────────┬────────────────────────────────────┘
-                           ▼
+└───────────────────────────────┬───────────────────────────────┘
+                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                       ECS层                                   │
 │  CameraComponent.pipelineFlags → RenderCamera.shaderFlags     │
-│  CAMERA_FLAG_OIT_BIT | CAMERA_SHADER_OIT_PPLL_BIT ...        │
-└──────────────────────────┬────────────────────────────────────┘
-                           ▼
+│  CAMERA_FLAG_OIT_BIT | CAMERA_SHADER_OIT_PPLL_BIT ...         │
+└───────────────────────────────┬───────────────────────────────┘
+                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                       渲染数据层                               │
 │  RenderNodeDefaultMaterialRenderSlotLloit                     │
-│    InitLloitGpuResources() → GPU缓冲创建                     │
-│    BindLloitBuffer()       → Set 3绑定                       │
+│    InitLloitGpuResources() → GPU缓冲创建                       │
+│    BindLloitBuffer()       → Set 3绑定                        │
 │    UpdateAndBindLloitSet() → 提交到GPU                        │
-└──────────────────────────┬────────────────────────────────────┘
-                           ▼
+└───────────────────────────────┬───────────────────────────────┘
+                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                       着色器层                                 │
-│  core3d_dm_fw_lloit.frag        (Pass 1: PPLL/AT片段收集)    │
-│  core3d_dm_fw_wboit.frag        (Pass 1: WBOIT加权累积)      │
-│  core3d_dm_fullscreen_lloit.frag (Pass 2: PPLL排序混合/AT)   │
-│  core3d_dm_fullscreen_wboit.frag (Pass 2: WBOIT合成)         │
-│  3d_dm_inplace_oit_common.h      (OIT算法函数)               │
-└──────────────────────────┬────────────────────────────────────┘
-                           ▼
+│  core3d_dm_fw_lloit.frag         (Pass 1: PPLL/AT片段收集)     │
+│  core3d_dm_fw_wboit.frag         (Pass 1: WBOIT加权累积)       │
+│  core3d_dm_fullscreen_lloit.frag (Pass 2: PPLL排序混合/AT)     │
+│  core3d_dm_fullscreen_wboit.frag (Pass 2: WBOIT合成)           │
+│  3d_dm_inplace_oit_common.h      (OIT算法函数)                 │
+└───────────────────────────────┬───────────────────────────────┘
+                                ▼
 ┌───────────────────────────────────────────────────────────────┐
 │                       GPU后端层                                │
 │  LinkedListHeadSBO (SSBO binding 0)                           │
 │  LinkedListSBO     (SSBO binding 1)                           │
 │  LinkedListCounterSBO (SSBO binding 2)                        │
-│  accumulation (MRT location 0) / revealage (location 1)      │
+│  accumulation (MRT location 0) / revealage (location 1)       │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -2277,38 +2268,38 @@ RenderSystem::Render() 内部逻辑：
 │                    CPU端 (每帧)                           │
 ├──────────────────────────────────────────────────────────┤
 │ 1. RenderSystem::Render()                                │
-│    ├─ 遍历相机，检测OIT_BIT                              │
-│    ├─ 根据SceneOitType设置ShaderFlags                    │
+│    ├─ 遍历相机，检测OIT_BIT                               │
+│    ├─ 根据SceneOitType设置ShaderFlags                     │
 │    └─ SetHasActiveOitCameras()                           │
 │                                                          │
 │ 2. PreExecuteFrame()                                     │
 │    ├─ 读取RenderDataStoreDefaultCamera                   │
-│    ├─ RecreateLloitGpuResources() (分辨率变化时)         │
+│    ├─ RecreateLloitGpuResources() (分辨率变化时)          │
 │    └─ 更新currentScene_                                  │
 │                                                          │
 │ 3. ExecuteFrame(cmdList)                                 │
-│    ├─ BindLloitBuffer() → 创建DescriptorSet(Set 3)      │
-│    ├─ 绘制透明物体 → Pass 1着色器执行                    │
-│    ├─ UpdateAndBindLloitSet() → 提交绑定到GPU            │
-│    └─ 解析Pass → Pass 2全屏着色器执行                    │
+│    ├─ BindLloitBuffer() → 创建DescriptorSet(Set 3)       │
+│    ├─ 绘制透明物体 → Pass 1着色器执行                      │ 
+│    ├─ UpdateAndBindLloitSet() → 提交绑定到GPU             │
+│    └─ 解析Pass → Pass 2全屏着色器执行                      │
 └──────────────────────────────────────────────────────────┘
-                           │
-                           ▼
+                              │
+                              ▼
 ┌──────────────────────────────────────────────────────────┐
-│                    GPU端                                  │
+│                    GPU端                                 │
 ├──────────────────────────────────────────────────────────┤
-│ Pass 1 (材质着色器):                                     │
-│   PPLL/AT → InplaceLinkedListOit() → 写入SSBO链表       │
-│   WBOIT   → InplaceWeightedOit()   → 写入MRT缓冲        │
+│ Pass 1 (材质着色器):                                      │
+│   PPLL/AT → InplaceLinkedListOit() → 写入SSBO链表         │
+│   WBOIT   → InplaceWeightedOit()   → 写入MRT缓冲          │
 │                                                          │
-│ Pass 2 (全屏着色器):                                     │
-│   PPLL  → 遍历链表→排序→从后向前混合                    │
-│   AT    → 遍历链表→构建可见性函数→采样混合               │
-│   WBOIT → 读取accum/reveal→反预乘还原→输出              │
+│ Pass 2 (全屏着色器):                                      │
+│   PPLL  → 遍历链表→排序→从后向前混合                       │
+│   AT    → 遍历链表→构建可见性函数→采样混合                  │
+│   WBOIT → 读取accum/reveal→反预乘还原→输出                 │
 │                                                          │
 │ 帧结束:                                                  │
-│   PPLL/AT → 清空链表头和计数器(在Pass 2中)              │
-│   WBOIT   → LOAD_OP_CLEAR自动清理                       │
+│   PPLL/AT → 清空链表头和计数器(在Pass 2中)                 │
+│   WBOIT   → LOAD_OP_CLEAR自动清理                         │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -2527,44 +2518,27 @@ void DebugLloitBuffers() {
 }
 ```
 
-## 12.2 ValidateOitRendering()
+## 12.2 溢出检测
 
-```cpp
-void ValidateOitRendering() {
-    Image opaqueOnly = CaptureScreen("opaque_only");
-    Image oitEnabled = CaptureScreen("oit_enabled");
+OIT链表溢出时片段被静默丢弃，无引擎日志输出。
 
-    float difference = CalculateImageDifference(opaqueOnly, oitEnabled);
+**关键限制**：`InplaceLinkedListOit()` 中 `atomicAdd(nodeIdx, 1)` 返回的索引如果 >= `maxNodeIdx`，片段直接 discard，**不会写入任何数据**。这意味着 `nodeIdx` 的最终值最多等于 `maxNodeIdx`——它记录的是"分配了多少节点"，而非"实际需要多少节点"。因此**无法仅通过 counter 判断溢出程度**。
 
-    PLUGIN_LOG_I("OIT rendering difference: %.2f%%", difference * 100);
+**可行的检测方法**：
 
-    if (difference < 0.01) {
-        PLUGIN_LOG_W("OIT rendering may not be working (difference too small)");
-    }
-}
-```
+| 方法 | 原理 | 可行性 |
+|------|------|--------|
+| counter 接近 max | `nodeIdx ≈ maxNodeIdx` 说明缓冲几乎用尽，**可能有**溢出 | 粗略，无法区分"刚好够用"和"大量溢出" |
+| 可视化片段计数 | 在 Pass 2 着色器中输出每像素实际遍历的片段数，与 `MAX_FRAGMENT_COUNT` 对比 | 需修改着色器，开发期可用 |
+| 对比测试 | 同场景分别用 PPLL(16片段上限) 和 Depth Peeling(无上限) 渲染，逐像素对比 | 最准确，但 Depth Peeling 实现成本高 |
 
-## 12.3 溢出检测与动态调整
+**缓解措施**（需应用层实现，非引擎内置）：
 
-```cpp
-void HandleOverflow() {
-    LinkedListCounter counter;
-    ReadBuffer(LinkedListCounterBuffer_, counter);
-
-    float overflowRatio = counter.nodeIdx / counter.maxNodeIdx;
-
-    if (overflowRatio > 0.9) {
-        if (overflowRatio > 0.95) {
-            SetOitType(OitType::WBOIT);
-            PLUGIN_LOG_W("OIT buffer overflow >95%%, fallback to WBOIT");
-        } else {
-            uint32_t newMaxFragmentCount = MAX_FRAGMENT_COUNT + 4;
-            InitLloitGpuResources(width, height, newMaxFragmentCount);
-            PLUGIN_LOG_I("OIT buffer increased to %u fragments/pixel", newMaxFragmentCount);
-        }
-    }
-}
-```
+| 方案 | 做法 | 代价 |
+|------|------|------|
+| 增大缓冲 | 重新调用 `InitLloitGpuResources()` 并增大 `MAX_FRAGMENT_COUNT` | 内存增加 |
+| 切换WBOIT | 修改 `SceneOitType` 为 WBOIT，无片段数限制 | 牺牲精确度 |
+| 优化场景 | 减少透明物体重叠或降低透明层数 | 需场景调整 |
 
 | 溢出片段数 | 影响 | 视觉效果 |
 |-----------|------|---------|
