@@ -2,27 +2,90 @@
 
 ## 目录
 
-1. [引言](#引言)
-2. [核心问题与挑战](#核心问题与挑战)
-3. [传统渲染方法的局限性](#传统渲染方法的局限性)
-4. [OIT技术概述](#oit技术概述)
-5. [Depth Peeling 深度剥离](#depth-peeling-深度剥离)
-6. [Dual Depth Peeling 双深度剥离](#dual-depth-peeling-双深度剥离)
-7. [Per-Pixel Linked Lists 逐像素链表](#per-pixel-linked-lists-逐像素链表)
-8. [Weighted Blended OIT 加权混合OIT](#weighted-blended-oit-加权混合oit)
-9. [Stochastic Transparency 随机透明度](#stochastic-transparency-随机透明度)
-10. [Adaptive Transparency 自适应透明度](#adaptive-transparency-自适应透明度)
-11. [Stencil Routed A-Buffer 模板路由](#stencil-routed-a-buffer-模板路由)
-12. [k-buffer / Multi-fragment Effects](#k-buffer--multi-fragment-effects)
-13. [Moment-Based OIT (MBOIT) 基于矩的顺序无关透明度](#moment-based-oit-mboit-基于矩的顺序无关透明度)
-14. [算法全面对比](#算法全面对比)
-15. [完整代码实现示例](#完整代码实现示例)
-16. [性能优化策略](#性能优化策略)
-17. [常见陷阱与解决方案](#常见陷阱与解决方案)
-18. [调试与验证技巧](#调试与验证技巧)
-19. [实际应用场景与算法选择](#实际应用场景与算法选择)
-20. [未来发展方向](#未来发展方向)
-21. [参考文献](#参考文献)
+- [OIT技术完整指南](#oit技术完整指南)
+  - [目录](#目录)
+  - [引言](#引言)
+  - [核心问题与挑战](#核心问题与挑战)
+  - [传统渲染方法的局限性](#传统渲染方法的局限性)
+  - [OIT技术概述](#oit技术概述)
+    - [精确方法](#精确方法)
+    - [近似方法](#近似方法)
+    - [混合方法](#混合方法)
+  - [Depth Peeling 深度剥离](#depth-peeling-深度剥离)
+  - [Dual Depth Peeling 双深度剥离](#dual-depth-peeling-双深度剥离)
+      - [双深度测试原理](#双深度测试原理)
+      - [前后缓冲混合方程](#前后缓冲混合方程)
+      - [为什么是1.5-2x加速而非精确2x](#为什么是15-2x加速而非精确2x)
+      - [Ping-Pong 轮转原理详解](#ping-pong-轮转原理详解)
+  - [Per-Pixel Linked Lists 逐像素链表](#per-pixel-linked-lists-逐像素链表)
+      - [内存预估策略](#内存预估策略)
+      - [溢出处理策略](#溢出处理策略)
+      - [头指针清空操作](#头指针清空操作)
+      - [为什么PPLL需要原子操作](#为什么ppll需要原子操作)
+  - [Weighted Blended OIT 加权混合OIT](#weighted-blended-oit-加权混合oit)
+      - [顺序无关性的数学证明](#顺序无关性的数学证明)
+      - [误差分析：WBOIT在何时失效？](#误差分析wboit在何时失效)
+      - [HDR考虑](#hdr考虑)
+      - [揭示缓冲关键细节](#揭示缓冲关键细节)
+  - [Stochastic Transparency 随机透明度](#stochastic-transparency-随机透明度)
+      - [实现方式](#实现方式)
+      - [性能特征](#性能特征)
+  - [Adaptive Transparency 自适应透明度](#adaptive-transparency-自适应透明度)
+      - [K=8 的选择依据](#k8-的选择依据)
+      - [能见度函数与背景覆盖率](#能见度函数与背景覆盖率)
+      - [AT与PPLL的关系](#at与ppll的关系)
+      - [AT的关键洞察：在线插入而非排序](#at的关键洞察在线插入而非排序)
+  - [Stencil Routed A-Buffer 模板路由](#stencil-routed-a-buffer-模板路由)
+      - [GPU级模板路由原理](#gpu级模板路由原理)
+      - [局限性](#局限性)
+      - [性能对比](#性能对比)
+      - [优缺点](#优缺点)
+      - [典型层数与精度](#典型层数与精度)
+  - [k-buffer / Multi-fragment Effects](#k-buffer--multi-fragment-effects)
+      - [数据结构](#数据结构)
+      - [k值选择与权衡](#k值选择与权衡)
+      - [溢出处理策略](#溢出处理策略-1)
+      - [与PPLL的对比](#与ppll的对比)
+      - [优缺点](#优缺点-1)
+  - [Moment-Based OIT (MBOIT) 基于矩的顺序无关透明度](#moment-based-oit-mboit-基于矩的顺序无关透明度)
+      - [原理概述](#原理概述)
+      - [矩的存储](#矩的存储)
+      - [从矩重构透明度](#从矩重构透明度)
+      - [4矩 vs 6矩](#4矩-vs-6矩)
+      - [MBOIT优缺点](#mboit优缺点)
+  - [算法全面对比](#算法全面对比)
+  - [完整代码实现示例](#完整代码实现示例)
+  - [性能优化策略](#性能优化策略)
+      - [层次深度测试（HiZ）提前剔除](#层次深度测试hiz提前剔除)
+      - [独立透明Pass渲染](#独立透明pass渲染)
+      - [批量合并与实例化](#批量合并与实例化)
+      - [视锥裁剪](#视锥裁剪)
+      - [LOD策略](#lod策略)
+      - [预计算权重查找表](#预计算权重查找表)
+      - [精度与带宽权衡](#精度与带宽权衡)
+      - [自适应分辨率](#自适应分辨率)
+      - [PPLL节点池预分配](#ppll节点池预分配)
+      - [计算着色器排序优化](#计算着色器排序优化)
+      - [VR多视图渲染](#vr多视图渲染)
+  - [常见陷阱与解决方案](#常见陷阱与解决方案)
+      - [颜色异常（过亮或过暗）](#颜色异常过亮或过暗)
+      - [深度闪烁](#深度闪烁)
+      - [PPLL渲染不完整](#ppll渲染不完整)
+      - [揭示缓冲错误](#揭示缓冲错误)
+  - [调试与验证技巧](#调试与验证技巧)
+      - [可视化每像素片段计数](#可视化每像素片段计数)
+      - [检查PPLL节点池溢出](#检查ppll节点池溢出)
+      - [对比WBOIT与Depth Peeling结果](#对比wboit与depth-peeling结果)
+      - [常见视觉伪影与原因](#常见视觉伪影与原因)
+      - [调试可视化技巧](#调试可视化技巧)
+      - [GPU调试工具](#gpu调试工具)
+      - [OIT调试流程](#oit调试流程)
+  - [实际应用场景与算法选择](#实际应用场景与算法选择)
+  - [未来发展方向](#未来发展方向)
+      - [硬件与底层](#硬件与底层)
+      - [算法与策略](#算法与策略)
+      - [应用场景](#应用场景)
+  - [参考文献](#参考文献)
 ---
 
 ## 引言
@@ -94,12 +157,12 @@ C = blend(A, blend(B, background))  // 完全不同的结果！
 渲染流程：
 ┌────────────────────────────────────┐
 │  CPU端几何排序                      │
-│  ↓                                  │
-│  计算每个物体到相机的距离           │
-│  ↓                                  │
-│  按距离从远到近排序                 │
-│  ↓                                  │
-│  依次渲染（从后到前）               │
+│  ↓                                 │
+│  计算每个物体到相机的距离            │
+│  ↓                                 │
+│  按距离从远到近排序                  │
+│  ↓                                 │
+│  依次渲染（从后到前）                │
 └────────────────────────────────────┘
 ```
 
@@ -110,16 +173,32 @@ C = blend(A, blend(B, background))  // 完全不同的结果！
 
 
 ```
-交叉情况示意：
-     物体A的一部分在前
-     ─────────────
-          ╲
-           ╲ 物体B的一部分在前
-            ╲
-             ╲
-              物体A的另一部分在前
+交叉情况示意（俯视图，相机在下方）：
 
-不存在全局排序！
+
+     ─────────────────────────
+     │  A前 │ A前 │ B前 │ B前 │  ← 像素级深度交替
+     ─────────────────────────
+     │ 物体B (倾斜面)         │
+     │    ╲                  │
+     │     ╲        ╱        │
+     │      ╲      ╱         │
+     │       ╲    ╱          │
+     │        ╲  ╱           │
+     │         ╲╱            │
+     │         ╱╲            │
+     │        ╱  ╲           │
+     │       ╱    ╲          │
+     │      ╱      ╲         │
+     │     ╱        ╲        │
+     │    ╱                  │
+     │ 物体A (倾斜面)         │
+     ─────────────────────────
+            相机视线方向 ↑
+
+     左侧像素：A在前 → 应先渲染B再渲染A
+     右侧像素：B在前 → 应先渲染A再渲染B
+     → 不存在一个全局排序能同时满足所有像素！
 ```
 
 
@@ -150,18 +229,18 @@ OIT技术的核心优势：
 
 ```
 OIT技术树：
-                    OIT技术
-                       │
-       ┌───────────────┼───────────────┐
-       │               │               │
-   精确方法         近似方法        混合方法
-       │               │               │
-   ┌───┼───┐       ┌───┼───┼───┐   ┌───┼───┐
-   │   │   │       │   │   │   │   │   │   │
-Depth  PPLL Stencil Weighted MBOIT Stoch. Adaptive k-buffer
-Peeling     Routed  Blended         Trans.  Transp.
 
-   │
+                                       OIT技术
+                                          │
+          ┌───────────────────────────────┼──────────────────────────────────────┐
+          │                               │                                      │
+      精确方法                         近似方法                                混合方法
+          │                               │                                      │
+ ┌────────┼────────┐         ┌────────────┼────────────┐              ┌──────────┼────────────┐
+ │        │        │         │            │            │              │          │            │
+Depth   PPLL   Stencil    Weighted      MBOIT      Stochastic      Adaptive   k-buffer   Multi-layer
+Peeling        Routed     Blended                 Transparency   Transparency            Weighted
+ │                                                                                       Blended
 Dual Depth
 Peeling
 ```
@@ -218,7 +297,8 @@ Depth Peeling 由 NVIDIA 于 2001 年提出，是最经典的OIT算法。
 
 ```
 深度剥离示意：
-相机视角 → ──────────────────────────
+                   相机视角 ↓ 
+            ──────────────────────────
               │ Layer 0 (最近) │  提取
               │ Layer 1        │  提取
               │ Layer 2        │  提取
@@ -341,51 +421,90 @@ void main() {
 ```cpp
 class DualDepthPeelingOIT {
 private:
-    GLuint minDepthTextures[2];  // ping-pong
-    GLuint maxDepthTextures[2];  // ping-pong
-    GLuint frontColorTextures[2];
-    GLuint backColorTextures[2];
-    GLuint framebuffers[2];
+    GLuint minDepthTextures[2];    // ping-pong: 两个Min深度纹理交替读写
+    GLuint maxDepthTextures[2];    // ping-pong: 两个Max深度纹理交替读写
+    GLuint frontColorTextures[2];  // ping-pong: 前层颜色
+    GLuint backColorTextures[2];   // ping-pong: 后层颜色
+    GLuint framebuffers[2];        // ping-pong: 各绑一套深度+颜色附件
+
+    int maxLayers;
 
 public:
+    void init(int width, int height, int layers) {
+        maxLayers = layers;
+
+        for (int i = 0; i < 2; i++) {
+            // 创建深度纹理（R32F：每像素一个float深度值）
+            glGenTextures(1, &minDepthTextures[i]);
+            glBindTexture(GL_TEXTURE_2D, minDepthTextures[i]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0,
+                         GL_RED, GL_FLOAT, nullptr);
+
+            glGenTextures(1, &maxDepthTextures[i]);
+            glBindTexture(GL_TEXTURE_2D, maxDepthTextures[i]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, width, height, 0,
+                         GL_RED, GL_FLOAT, nullptr);
+
+            // 创建颜色纹理（RGBA16F）
+            glGenTextures(1, &frontColorTextures[i]);
+            glBindTexture(GL_TEXTURE_2D, frontColorTextures[i]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0,
+                         GL_RGBA, GL_HALF_FLOAT, nullptr);
+
+            glGenTextures(1, &backColorTextures[i]);
+            glBindTexture(GL_TEXTURE_2D, backColorTextures[i]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0,
+                         GL_RGBA, GL_HALF_FLOAT, nullptr);
+
+            // 创建帧缓冲，绑定附件
+            glGenFramebuffers(1, &framebuffers[i]);
+            glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[i]);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                   GL_TEXTURE_2D, frontColorTextures[i], 0);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1,
+                                   GL_TEXTURE_2D, backColorTextures[i], 0);
+        }
+    }
+
     void render() {
-        // 初始化：清空深度
-        // min深度缓冲初始化为1.0（最远），使第一pass能捕获最近片段
+        // ========== 初始化Pass ==========
+        // 目的：用无约束的深度范围渲染一遍，提取最前和最后层
+        // min深度初始化为1.0（最大可能深度），任何片段都 < 1.0 → 第一个片段就能写入
+        // max深度初始化为0.0（最小可能深度），任何片段都 > 0.0 → 第一个片段就能写入
         glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[0]);
-        glClearDepth(1.0);  // min depth
-        glClear(GL_DEPTH_BUFFER_BIT);
+        GLfloat one = { 1.0f };
+        glClearBufferfv(GL_COLOR, 0, &one);     // minDepth = 1.0
+        glClearBufferfv(GL_COLOR, 1, &zero);    // maxDepth = 0.0
+        glClearBufferfv(GL_COLOR, 2, &zero);    // frontColor = 0
+        glClearBufferfv(GL_COLOR, 3, &zero);    // backColor = 0
 
-        // max深度缓冲初始化为0.0（最近），使第一pass能捕获最远片段
-        glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[1]);
-        glClearDepth(0.0);  // max depth
-        glClear(GL_DEPTH_BUFFER_BIT);
+        useInitPeelingShader();                  // 初始化着色器（无深度约束）
+        renderTransparentObjects();
 
-        // 双深度剥离passes
+        // ========== 剥离Passes ==========
         for (int pass = 0; pass < (maxLayers + 1) / 2; pass++) {
-            int read = pass % 2;
-            int write = 1 - read;
+            int read  = pass % 2;    // 上一次写入的缓冲区 = 本次读取的源
+            int write = 1 - read;    // 另一个缓冲区 = 本次写入的目标
 
             glBindFramebuffer(GL_FRAMEBUFFER, framebuffers[write]);
 
-            // 清空颜色缓冲
-            GLfloat zero[] = {0, 0, 0, 0};
-            glClearBufferfv(GL_COLOR, 0, zero);
-            glClearBufferfv(GL_COLOR, 1, zero);
+            // 清空本次写入的颜色缓冲（深度从read缓冲读取，不清空）
+            GLfloat zero[] = { 0, 0, 0, 0 };
+            glClearBufferfv(GL_COLOR, 0, zero);  // frontColor
+            glClearBufferfv(GL_COLOR, 1, zero);  // backColor
 
-            // 设置双深度剥离着色器
+            // 绑定上一Pass的深度结果作为本Pass的约束
             useDualPeelingShader();
-            bindTexture("minDepth", minDepthTextures[read]);
-            bindTexture("maxDepth", maxDepthTextures[read]);
+            bindTexture("prevMinDepth", minDepthTextures[read]);
+            bindTexture("prevMaxDepth", maxDepthTextures[read]);
 
             glEnable(GL_BLEND);
             glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ONE, GL_ONE);
 
             renderTransparentObjects();
-
-            // Ping-pong交换
         }
 
-        // 合成：从后到前混合back层，从前到后混合front层
+        // ========== 合成 ==========
         composite();
     }
 };
@@ -397,17 +516,17 @@ public:
 Dual Depth Peeling 使用 Min/Max 双深度缓冲实现每Pass同时剥离最前和最后两层：
 
 ```
-Min Buffer 初始值：0.0（最近深度阈值，任何片段都更远）
-Max Buffer 初始值：1.0（最远深度阈值，任何片段都更近）
+Min Buffer 初始值：1.0（最大可能深度，使任何片段 z < 1.0 都能通过，捕获最前层）
+Max Buffer 初始值：0.0（最小可能深度，使任何片段 z > 0.0 都能通过，捕获最后层）
 
 每Pass逻辑：
 ┌─────────────────────────────────────────────────┐
-│  片段深度 z                                       │
-│  ├─ z < minDepth → 写入Front Buffer（新最前层）    │
-│  │                更新 minDepth = z               │
-│  ├─ z > maxDepth → 写入Back Buffer（新最后层）     │
-│  │                更新 maxDepth = z               │
-│  └─ 否则 → discard（中间层，留给后续Pass）         │
+│  片段深度 z                                      │
+│  ├─ z < minDepth → 写入Front Buffer（新最前层）  │
+│  │                更新 minDepth = z             │
+│  ├─ z > maxDepth → 写入Back Buffer（新最后层）   │
+│  │                更新 maxDepth = z             │
+│  └─ 否则 → discard（中间层，留给后续Pass）        │
 └─────────────────────────────────────────────────┘
 ```
 
@@ -435,25 +554,53 @@ C_final = C_front × (1 - α_front_total) + C_front_bg
 3. **奇数层场景**：当总层数为奇数时，最后一个Pass只剥离一层
 4. **带宽增加**：每个Pass读写更多缓冲区（Min/Max深度 + Front/Back颜色）
 
-#### Ping-Pong缓冲布局
+#### Ping-Pong 轮转原理详解
 
-Dual Depth Peeling 使用两组缓冲区交替读写，避免同步问题：
+Dual Depth Peeling 使用**两组缓冲区交替读写**，核心问题是：每个 Pass 需要读取上一 Pass 的深度结果作为约束，同时写入新的深度结果。如果只用一个缓冲区，读写同一纹理会导致数据竞争（GPU 可能同时读写同一像素）。解决方案是用两个缓冲区交替。
+
+**轮转过程**（以4层透明物体为例，需要3个Pass）：
 
 ```
-┌─────────────────────────────────────────────────┐
-│  Ping-Pong 布局                                  │
-│                                                  │
-│  组A（read）:  minDepth_A, maxDepth_A,           │
-│                frontColor_A, backColor_A          │
-│                                                  │
-│  组B（write）: minDepth_B, maxDepth_B,           │
-│                frontColor_B, backColor_B          │
-│                                                  │
-│  Pass 0: 读A → 写B                               │
-│  Pass 1: 读B → 写A                               │
-│  Pass 2: 读A → 写B                               │
-│  ...                                             │
-└─────────────────────────────────────────────────┘
+初始状态：
+  组0: minDepth=1.0, maxDepth=0.0 (初始化Pass的输出，包含Layer0和Layer3)
+  组1: 空
+
+Pass 1 (剥离Layer1和Layer2):
+  read  = 1 % 2 = 1? 不，初始化Pass写入组0，所以第一个剥离Pass:
+  read  = 0 (读组0的深度约束)
+  write = 1 (写组1)
+  → 从组0读取 minDepth/maxDepth，向组1写入新的深度+颜色
+
+Pass 2:
+  read  = 1 (读组1的深度约束)
+  write = 0 (写组0)
+  → 从组1读取 minDepth/maxDepth，向组0写入新的深度+颜色
+
+Pass 3:
+  read  = 0 (读组0)
+  write = 1 (写组1)
+  ...
+```
+
+**关键**：`read = pass % 2`, `write = 1 - read`。每 Pass 结束后无需拷贝数据，上一 Pass 的 write 缓冲自动成为下一 Pass 的 read 缓冲。
+
+**为什么不用三个缓冲区？** 两个就够了——因为每 Pass 只依赖上一 Pass 的结果，不需要更早的历史数据。
+
+**完整数据流示意**：
+
+```
+初始化Pass:                        剥离Pass 1:                       剥离Pass 2:
+  渲染全部片段                      read组0深度约束                    read组1深度约束
+  → 写入组0                         → 写入组1                         → 写入组0
+  组0.minDepth = 最前层深度         组1.minDepth = 新最前层深度        组0.minDepth = 更新...
+  组0.maxDepth = 最后层深度         组1.maxDepth = 新最后层深度        组0.maxDepth = 更新...
+  组0.frontColor = Layer0颜色       组1.frontColor = Layer1颜色       ...
+  组0.backColor  = LayerN颜色       组1.backColor  = LayerN-1颜色     ...
+
+  ┌──────────┐                     ┌──────────┐                     ┌──────────┐
+  │ 组0: R/W │ ──────深度约束─────→ │ 组0: R   │                     │ 组0: R/W │
+  │ 组1:  -  │                     │ 组1: W   │ ──────深度约束─────→ │ 组1: R   │
+  └──────────┘                     └──────────┘                     └──────────┘
 ```
 
 ---
@@ -935,8 +1082,8 @@ float weight4(float alpha, float depth, vec3 color) {
 ┌────────────────────────────────────────────┐
 │ Accumulation Buffer (累积缓冲区)            │
 │ 格式：RGBA16F 或 RGBA32F                    │
-│ 存储：Σ(C_i × w_i) 在 RGB通道                 │
-│       Σ(w_i) 在 A通道                         │
+│ 存储：Σ(C_i × w_i) 在 RGB通道               │
+│       Σ(w_i) 在 A通道                       │
 └────────────────────────────────────────────┘
 
 ┌────────────────────────────────────────────┐
@@ -2489,13 +2636,6 @@ for (int i = 0; i < K; i++) {
 - Khronos OpenGL/Vulkan: https://www.khronos.org/
 - AMD GPUOpen: https://gpuopen.com/
 - Intel Graphics: https://software.intel.com/
-
-
-1. 理解Porter-Duff合成公式
-2. 实现简单Depth Peeling
-3. 研究Weighted Blended权重函数
-4. 实现Per-Pixel Linked Lists
-5. 对比各算法性能和质量
 
 ---
 
