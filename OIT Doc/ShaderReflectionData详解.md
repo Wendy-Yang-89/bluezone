@@ -128,10 +128,10 @@ LSB (Lume Shader Binary) 二进制结构：
 │   │   │   ├── Set Index
 │   │   │   ├── Binding Count
 │   │   │   ├── Binding Descriptors
-│   │   │   │   ├── Binding Index
-│   │   │   │   ├── Descriptor Type (UNIFORM_BUFFER, STORAGE_BUFFER, etc.)
-│   │   │   │   ├── Descriptor Count
-│   │   │   │   └── Name
+│   │   │   │   ├── Binding Index (uint16)
+│   │   │   │   ├── Descriptor Type (uint16, e.g. UNIFORM_BUFFER=6, STORAGE_BUFFER=7)
+│   │   │   │   ├── Descriptor Count (uint16)
+│   │   │   │   └── (V1格式额外: Image Dimension uint8, Image Flags uint8)
 │   │   │   └── ...
 │   ├── Specialization Constants
 │   ├── Push Constants
@@ -215,7 +215,7 @@ layout(set = 1, binding = 0) uniform sampler2D texSampler;
 
 ```glsl
 // .spv.gl 或 .spv.gles
-// SPIR-V 转换后的 GLSL（传统 uniform 命名）
+// SPIR-V 转换后的 GLSL（保留原始变量名）
 
 // Uniform Buffer Object (set=0, binding=0)
 layout(binding = 0, std140) uniform UniformBufferObject
@@ -223,13 +223,23 @@ layout(binding = 0, std140) uniform UniformBufferObject
     mat4 model;
     mat4 view;
     mat4 proj;
-} s0_b0;  // 命名规则: s{set}_b{binding}
+} ubo;  // spirv_cross保留原始变量名
 
 // Sampler (set=1, binding=0)
-uniform sampler2D s1_b0;  // 命名规则: s{set}_b{binding}
+uniform sampler2D texSampler;  // spirv_cross保留原始变量名
 
 // 注意：GLSL 中不再有 set 布局，只有 binding
 // LSB 文件中记录了原始的 set/binding 对应关系
+```
+
+**引擎内部的 `s{set}_b{binding}` 命名规则：**
+
+```cpp
+// shader_module_gles.cpp:42 — Collect()函数中
+// 引擎为每个binding生成内部名称，用于绑定追踪
+const auto name = "s" + to_string(set) + "_b" + to_string(binding.binding);
+// 例如：set=0, binding=0 → "s0_b0"
+// 注意：这是引擎内部命名，不是spirv_cross输出的GLSL变量名
 ```
 
 **引擎中使用 spirv_cross：**
@@ -238,7 +248,7 @@ uniform sampler2D s1_b0;  // 命名规则: s{set}_b{binding}
 // shader_module_gles.cpp:252-255
 string ShaderModuleGLES::GetGLSL(const ShaderSpecializationConstantDataView& specData) const
 {
-    return SpecializeShaderModule(*this, specData);  // 调用 spirv_cross helper
+    return SpecializeShaderModule(*this, specData);
 }
 
 // spirv_cross_helpers_gles.cpp:127-163
@@ -285,34 +295,37 @@ Shader源码 → glslang → SPIR-V（包含实际使用的资源信息）
 
 ## 三、问题案例：Set 3类型错误
 
-### 2.1 问题现象
+### 3.1 问题现象
 
 **错误现象：** LLOIT shader的LSB文件显示Set 3为COMBINED_IMAGE_SAMPLER，实际应为STORAGE_BUFFER。
 
-### 2.2 问题根源
+### 3.2 问题根源
 
 **Shader源码中的声明冲突：**
 
 ```glsl
 // 3d_dm_env_frag_layout_common.h (先include)
-layout(set = 3, binding = 0) uniform sampler2D uImgSampler;  // COMBINED_IMAGE_SAMPLER
-layout(set = 3, binding = 1) uniform samplerCube uImgCubeSampler;
+layout(set = 3, binding = 0) uniform sampler2D uImgSampler;          // COMBINED_IMAGE_SAMPLER
+layout(set = 3, binding = 1) uniform samplerCube uImgCubeSampler;    // COMBINED_IMAGE_SAMPLER
+layout(set = 3, binding = 2) uniform samplerCube uImgCubeSamplerBlender; // COMBINED_IMAGE_SAMPLER
+layout(set = 3, binding = 3) uniform sampler2D uImgTLutSampler;      // COMBINED_IMAGE_SAMPLER
 // ... 未被fw_lloit shader使用
 
-// 3d_dm_oit_layout_common.h (后include)
-layout(set = 3, binding = 0, std430) buffer LinkedListHeadSBO { ... };  // STORAGE_BUFFER
-layout(set = 3, binding = 1, std430) buffer LinkedListSBO { ... };
-// ... fw_lloit shader实际使用
+// 3d_dm_oit_layout_common.h (后include, CORE3D_DM_LLOIT_FRAG_LAYOUT==1时启用)
+layout(set = 3, binding = 0, std430) buffer LinkedListHeadSBO { uint LinkedListHead[]; };          // STORAGE_BUFFER
+layout(set = 3, binding = 1, std430) buffer LinkedListSBO { DefaultOitLinkedListNodeStruct nodes[]; }; // STORAGE_BUFFER
+layout(set = 3, binding = 2, std430) buffer LinkedListCounterSBO { uint nodeIdx; uint maxNodeIdx; };   // STORAGE_BUFFER
+// ... fw_lloit shader实际使用（仅binding 0-2，无binding 3）
 ```
 
-### 2.3 SPIR-V编译器正确处理
+### 3.3 SPIR-V编译器正确处理
 
 glslang编译时：
 1. 未使用的env sampler被优化剔除（dead code elimination）
 2. 使用中的OIT SSBO被保留
 3. SPIR-V正确记录StorageBuffer类型
 
-### 2.4 spirv-reflect正确识别
+### 3.4 spirv-reflect正确识别
 
 ```
 spirv-reflect输出:
@@ -320,10 +333,10 @@ spirv-reflect输出:
     Binding 0: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ✓
     Binding 1: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ✓
     Binding 2: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ✓
-    Binding 3: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER ✓
+  （仅3个SSBO，binding 0-2，无binding 3）
 ```
 
-### 2.5 LSB生成错误（修复前）
+### 3.5 LSB生成错误（修复前）
 
 LumeShaderCompiler可能的bug：
 1. 从shader源码而非SPIR-V提取reflection
@@ -336,21 +349,21 @@ Set 3:
   Binding 0: type=1 (COMBINED_IMAGE_SAMPLER) ✗
   Binding 1: type=1 (COMBINED_IMAGE_SAMPLER) ✗
   Binding 2: type=1 (COMBINED_IMAGE_SAMPLER) ✗
-  Binding 3: type=1 (COMBINED_IMAGE_SAMPLER) ✗
+  （类型错误：应为STORAGE_BUFFER，被env layout的sampler声明覆盖）
 ```
 
 ---
 
 ## 四、影响分析
 
-### 3.1 Vulkan Backend不受影响
+### 4.1 Vulkan Backend不受影响
 
 **原因：**
 - Vulkan使用shaderpl文件定义PipelineLayout（正确）
 - Vulkan使用SPIR-V中的实际资源（正确）
 - Vulkan也加载LSB reflection data
 
-### 3.2 GL Backend受影响
+### 4.2 GL Backend受影响
 
 **原因：**
 - GL backend依赖LSB reflection data
@@ -366,14 +379,14 @@ Set 3:
 
 ## 五、修复方案
 
-### 4.1 修复LumeShaderCompiler
+### 5.1 修复LumeShaderCompiler
 
 确保LSB生成逻辑：
 1. 从SPIR-V而非shader源码提取reflection
 2. 过滤未使用的资源声明
 3. 正确识别StorageBuffer类型
 
-### 4.2 修复验证
+### 5.2 修复验证
 
 修复后LSB正确显示：
 ```
@@ -381,14 +394,14 @@ Set 3:
   Binding 0: type=7 (STORAGE_BUFFER) ✓
   Binding 1: type=7 (STORAGE_BUFFER) ✓
   Binding 2: type=7 (STORAGE_BUFFER) ✓
-  Binding 3: type=7 (STORAGE_BUFFER) ✓
+  （仅3个SSBO，binding 0-2，无binding 3）
 ```
 
 ---
 
 ## 六、排查方法
 
-### 5.1 对比验证流程
+### 6.1 对比验证流程
 
 ```
 1. spirv-reflect shader.spv > spirv_output.txt
@@ -396,7 +409,7 @@ Set 3:
 3. 对比Set X Binding Y的类型是否一致
 ```
 
-### 5.2 关键检查点
+### 6.2 关键检查点
 
 | 检查项 | SPIR-V | LSB | shaderpl |
 |--------|--------|-----|----------|
@@ -404,7 +417,7 @@ Set 3:
 | Binding数量 | 实际使用 | 应一致 | 应一致 |
 | Set索引 | 实际使用 | 应一致 | 应一致 |
 
-### 5.3 错误类型识别
+### 6.3 错误类型识别
 
 **常见错误模式：**
 - STORAGE_BUFFER显示为COMBINED_IMAGE_SAMPLER
@@ -414,7 +427,7 @@ Set 3:
 
 ## 七、预防措施
 
-### 6.1 Shader源码规范
+### 7.1 Shader源码规范
 
 避免重复的set/binding声明：
 ```glsl
@@ -425,7 +438,7 @@ layout(set = 3, binding = 0) uniform sampler2D uImgSampler;
 #endif
 ```
 
-### 6.2 自动化验证
+### 7.2 自动化验证
 
 创建CI检查脚本：
 ```bash
