@@ -1,6 +1,16 @@
 # 团结引擎OpenHarmony开发踩坑记录
 
- 1. 打包成应用后切换材质/shader后效果错误，可能是没有在脚本中保留对shader的引用，引擎无法追踪到这个shader会被使用，打包过程中该shader被剔除
+ 1. 打包成应用后切换材质/shader后效果错误，可能是没有在脚本中保留对shader的引用，引擎无法追踪到这个shader会被使用，打包过程中该shader被剔除。
+	Unity 对 shader 剥离的优先级从高到低：
+	| 方法 | 是否可靠 | 原因 |
+	|------|---------|------|
+	| `GraphicsSettings.alwaysIncludedShaders` | **可靠** | 最高优先级，绝不剥离 |
+	| `Resources/` 下的材质引用该 shader | **可靠** | Resources 下全部打入包 |
+	| 项目内 `.shader` 文件被引用 | **可靠** | Assets 内的资产有引用追踪 |
+	| `public Shader` 字段引用**内置** shader | **不可靠** | 内置 shader 不在 Assets/ 下，URP stripping 阶段仍可移除 |
+	| `Shader.Find()` 运行时查找 | **不可靠** | shader 已经被剥离了，找不到 |
+	
+	**结论：对于内置 shader（如 `Skybox/Procedural`），唯一可靠的方式就是 `Always Included Shaders`。**
  2. 添加了很多附加光源但是在打包应用中只有主光源，无附加光源渲染贡献
 	- 在 `Edit > Project Settings > Quality` 中确认打包目标平台的渲染质量等级
 		- 有对勾说明该平台支持对应渲染质量等级

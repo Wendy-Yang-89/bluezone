@@ -1,4 +1,4 @@
-# Vulkan 渲染通道布局转换错误解决方案
+# Vulkan渲染通道布局转换错误
 
 ## 背景
 
@@ -41,7 +41,7 @@ pCreateInfo->pAttachments[0] 初始布局: VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ON
 在渲染节点中，深度附件的最终布局通常由引擎自动管理。检查以下配置：
 
 ```cpp
-// 在 ProcessDepthAttachments 中（render_command_list.cpp:1154）
+// 在 ProcessDepthAttachments 中（render_command_list.cpp:1173）
 subpassResourceStates.layouts[attachmentIndex] = CORE_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 ```
 
@@ -117,6 +117,8 @@ subpassDesc.depthAttachmentIndex = 0;
 
 **注意**：此方案是规避而非修复——移除输入附件意味着着色器中无法读取深度值。若渲染逻辑依赖深度输入（如 SSAO、软粒子等），则不可使用此方案。
 
+**补充说明**：当深度附件在同一子通道中同时用作深度附件和输入附件时，引擎实际将布局设置为 `CORE_IMAGE_LAYOUT_GENERAL`（而非 `DEPTH_STENCIL_ATTACHMENT_OPTIMAL` 或 `DEPTH_STENCIL_READ_ONLY_OPTIMAL`），因为 `GENERAL` 布局同时允许深度写入和着色器读取，从而避免同一子通道内的布局冲突。
+
 ---
 
 ## 引擎渲染图的布局管理
@@ -132,9 +134,9 @@ Lume 引擎的渲染图（`render_graph.cpp`）负责在渲染通道之间自动
 | 功能 | 文件 | 行号 |
 |------|------|------|
 | 附件布局状态更新 | `submodules/LumeRender/src/render_graph.cpp` | 1130-1162 |
-| 渲染通道屏障插入 | `submodules/LumeRender/src/render_graph.cpp` | 1467-1481 |
+| 渲染通道屏障插入 | `submodules/LumeRender/src/render_graph.cpp` | 1467-1537 |
 
-其中布局更新逻辑（:1130-1162）根据附件描述和当前状态计算 `initialImageLayouts` 和 `finalImageLayouts`；屏障插入逻辑（:1467-1481）遍历子通道的附件引用，为每个附件生成 `CommandBarrier` 以完成布局转换。若节点的附件声明不完整，这两段逻辑均无法正确工作。
+其中布局更新逻辑（:1130-1162）根据附件描述和当前状态计算 `initialImageLayouts` 和 `finalImageLayouts`；屏障插入逻辑（:1467-1537）遍历子通道的附件引用，为每个附件生成 `CommandBarrier` 以完成布局转换。若节点的附件声明不完整，这两段逻辑均无法正确工作。
 
 ---
 
@@ -161,10 +163,10 @@ Lume 引擎的渲染图（`render_graph.cpp`）负责在渲染通道之间自动
 
 ## 代码位置
 
-- 深度附件布局设置：`submodules/LumeRender/src/nodecontext/render_command_list.cpp:1154`
-- 输入附件布局设置：`submodules/LumeRender/src/nodecontext/render_command_list.cpp:1063-1065`
+- 深度附件布局设置：`submodules/LumeRender/src/nodecontext/render_command_list.cpp:1173`
+- 输入附件布局设置：`submodules/LumeRender/src/nodecontext/render_command_list.cpp:1079-1084`
 - 布局更新函数：`submodules/LumeRender/src/render_graph.cpp:1130-1162`
-- 屏障插入函数：`submodules/LumeRender/src/render_graph.cpp:1417-1481`
+- 屏障插入函数：`submodules/LumeRender/src/render_graph.cpp:1467-1537`
 - 显式屏障 API：`submodules/LumeRender/api/render/nodecontext/intf_render_command_list.h:265`
 
 ---
